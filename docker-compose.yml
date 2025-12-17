@@ -7,28 +7,10 @@ services:
       dockerfile: Dockerfile
     container_name: ubl-cloudwatch-logs
     ports:
-      - "8000:8000"
-    environment:
-      # AWS credentials - will be loaded from .env file
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_REGION=${AWS_REGION}
-
-      # Application config
-      - LOG_GROUP_NAME=${LOG_GROUP_NAME}
-      - SECRET_KEY=${SECRET_KEY}
-      - USERNAME=${USERNAME}
-      - PASSWORD=${PASSWORD}
-      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      - "8002:8002"
     env_file:
       - .env
     restart: unless-stopped
-    healthcheck:
-      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/').read()" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
     networks:
       - cloudwatch-network
     logging:
