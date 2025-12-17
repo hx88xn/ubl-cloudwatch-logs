@@ -11,6 +11,30 @@ from src.config import (
     CACHE_TTL_SECONDS
 )
 
+# Filter patterns - logs containing these strings will be excluded
+FILTER_PATTERNS = [
+    'Data inserted into MySQL database',
+    '✅ Background task scheduled successfully',
+    '✅ Background task completed: Successfully uploaded',
+    'S3 Storage: Uploading audio file to S3...',
+    'Using Low Cost Pipeline',
+    'Processing command validation with GPT...',
+    'Preprocessed text: ',
+    '🔄 Transcribing audio (supports Urdu + English)...',
+    'GET /health',
+    'GET /docs'
+]
+
+def should_filter_log(message: str) -> bool:
+    """
+    Check if a log message should be filtered out.
+    Returns True if the message contains any of the filter patterns.
+    """
+    for pattern in FILTER_PATTERNS:
+        if pattern in message:
+            return True
+    return False
+
 class LogEntry(BaseModel):
     timestamp: int
     message: str
@@ -110,6 +134,12 @@ def fetch_logs(
             all_events.sort(key=lambda x: x['timestamp'], reverse=True)
             
             all_events = all_events[:smart_limit]
+            
+            # Filter out unwanted log messages BEFORE caching
+            all_events = [
+                event for event in all_events 
+                if not should_filter_log(event.get('message', ''))
+            ]
             
             _logs_cache = {
                 'data': all_events,
