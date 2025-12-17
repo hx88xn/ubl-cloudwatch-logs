@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -37,8 +38,15 @@
         }
 
         @keyframes wave {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-20px); }
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-20px);
+            }
         }
 
         .login-container {
@@ -60,6 +68,7 @@
                 opacity: 0;
                 transform: translateY(30px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -86,8 +95,15 @@
         }
 
         @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
         }
 
         h1 {
@@ -199,9 +215,19 @@
         }
 
         @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-10px); }
-            75% { transform: translateX(10px); }
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(-10px);
+            }
+
+            75% {
+                transform: translateX(10px);
+            }
         }
 
         .error-message.show {
@@ -229,7 +255,9 @@
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         @media (max-width: 480px) {
@@ -244,6 +272,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="login-container">
         <div class="logo">
@@ -257,26 +286,14 @@
         <form id="loginForm">
             <div class="form-group">
                 <label for="username">Username</label>
-                <input 
-                    type="text" 
-                    id="username" 
-                    name="username" 
-                    placeholder="Enter your username"
-                    required
-                    autocomplete="username"
-                >
+                <input type="text" id="username" name="username" placeholder="Enter your username" required
+                    autocomplete="username">
             </div>
 
             <div class="form-group">
                 <label for="password">Password</label>
-                <input 
-                    type="password" 
-                    id="password" 
-                    name="password" 
-                    placeholder="Enter your password"
-                    required
-                    autocomplete="current-password"
-                >
+                <input type="password" id="password" name="password" placeholder="Enter your password" required
+                    autocomplete="current-password">
             </div>
 
             <button type="submit" class="login-btn" id="loginBtn">
@@ -290,7 +307,7 @@
     </div>
 
     <script>
-        
+
         const token = localStorage.getItem('access_token');
         if (token) {
             window.location.href = '/dashboard';
@@ -302,53 +319,57 @@
 
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
-            
-            
+
+
             loginBtn.disabled = true;
             loginBtn.innerHTML = 'Signing in<span class="spinner"></span>';
             errorMessage.classList.remove('show');
-            
+
             try {
-                
+
                 const formData = new FormData();
                 formData.append('username', username);
                 formData.append('password', password);
-                
-                
+
+
                 const response = await fetch('/token', {
                     method: 'POST',
                     body: formData
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (response.ok) {
-                    
+                    // Store access token
                     localStorage.setItem('access_token', data.access_token);
-                    
-                    
+
+                    // Redirect based on user role
                     loginBtn.innerHTML = '✓ Success! Redirecting...';
                     setTimeout(() => {
-                        window.location.href = '/dashboard';
+                        if (data.role === 'stakeholder') {
+                            window.location.href = '/app-logs';
+                        } else {
+                            window.location.href = '/dashboard';
+                        }
                     }, 500);
                 } else {
                     throw new Error(data.detail || 'Login failed');
                 }
             } catch (error) {
-                
+
                 errorMessage.textContent = error.message || 'Invalid username or password';
                 errorMessage.classList.add('show');
-                
-                
+
+
                 loginBtn.disabled = false;
                 loginBtn.innerHTML = 'Sign In';
             }
         });
 
-        
+
         document.getElementById('password').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 loginForm.dispatchEvent(new Event('submit'));
@@ -356,4 +377,5 @@
         });
     </script>
 </body>
+
 </html>

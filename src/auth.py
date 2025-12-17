@@ -18,6 +18,7 @@ class TokenData(BaseModel):
 
 class User(BaseModel):
     username: str
+    role: Optional[str] = "admin"  # "admin" or "stakeholder"
     disabled: Optional[bool] = None
 
 def hash_password(password: str) -> str:
@@ -27,6 +28,13 @@ USERS_DB = {
     "admin": {
         "username": "admin",
         "hashed_password": hash_password("admin123"),
+        "role": "admin",
+        "disabled": False,
+    },
+    "stakeholder": {
+        "username": "stakeholder",
+        "hashed_password": hash_password("stakeholder123"),
+        "role": "stakeholder",
         "disabled": False,
     }
 }

@@ -25,12 +25,30 @@ FILTER_PATTERNS = [
     'GET /docs'
 ]
 
+# App logs patterns - logs containing these strings will be included
+APP_LOGS_PATTERNS = [
+    'Beneficiaries: ',
+    'Final Response: ',
+    'Phone contacts: ',
+    'Bill types: '
+]
+
 def should_filter_log(message: str) -> bool:
     """
     Check if a log message should be filtered out.
     Returns True if the message contains any of the filter patterns.
     """
     for pattern in FILTER_PATTERNS:
+        if pattern in message:
+            return True
+    return False
+
+def should_include_app_log(message: str) -> bool:
+    """
+    Check if a log message should be included in app logs.
+    Returns True if the message contains any of the app log patterns.
+    """
+    for pattern in APP_LOGS_PATTERNS:
         if pattern in message:
             return True
     return False
@@ -197,3 +215,95 @@ def get_log_streams():
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching log streams: {str(e)}")
+
+def fetch_app_logs(
+    hours: int = 1,
+    limit: int = 500,
+    page: int = 1,
+    page_size: int = 50
+):
+    """
+    Fetch logs that contain app-specific patterns.
+    Filters for: Beneficiaries, Final Response, Phone contacts, Bill types
+    """
+    global _logs_cache
+    client = get_cloudwatch_client()
+    
+    end_time = datetime.now()
+    
+    if hours >= 24:
+        days_back = hours // 24
+        start_time = end_time.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days_back)
+    else:
+        start_time = end_time - timedelta(hours=hours)
+    
+    start_time_ms = int(start_time.timestamp() * 1000)
+    end_time_ms = int(end_time.timestamp() * 1000)
+    
+    if hours <= 1:
+        smart_limit = min(limit, 5000)
+    elif hours <= 6:
+        smart_limit = min(limit, 3000)
+    elif hours <= 24:
+        smart_limit = min(limit, 2000)
+    else:
+        smart_limit = min(limit, 1000)
+    
+    try:
+        all_events = []
+        
+        paginator = client.get_paginator('filter_log_events')
+        
+        pagination_config = {
+            'logGroupName': LOG_GROUP_NAME,
+            'startTime': start_time_ms,
+            'endTime': end_time_ms,
+            'PaginationConfig': {
+                'MaxItems': smart_limit,
+                'PageSize': 100
+            }
+        }
+        
+        page_iterator = paginator.paginate(**pagination_config)
+        
+        for page_response in page_iterator:
+            events = page_response.get('events', [])
+            all_events.extend(events)
+            if len(all_events) >= smart_limit:
+                break
+        
+        all_events.sort(key=lambda x: x['timestamp'], reverse=True)
+        
+        all_events = all_events[:smart_limit]
+        
+        # Filter to include ONLY app logs
+        app_events = [
+            event for event in all_events 
+            if should_include_app_log(event.get('message', ''))
+        ]
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching app logs: {str(e)}")
+    
+    total_events = len(app_events)
+    start_idx = (page - 1) * page_size
+    end_idx = start_idx + page_size
+    
+    paginated_events = app_events[start_idx:end_idx]
+    
+    formatted_events = []
+    for event in paginated_events:
+        formatted_events.append({
+            'timestamp': event['timestamp'],
+            'message': event['message'].strip(),
+            'formatted_time': datetime.fromtimestamp(event['timestamp'] / 1000).strftime('%Y-%m-%d %H:%M:%S')
+        })
+    
+    return {
+        'logs': formatted_events,
+        'total': total_events,
+        'page': page,
+        'page_size': page_size,
+        'has_more': end_idx < total_events,
+        'total_pages': (total_events + page_size - 1) // page_size
+    }
