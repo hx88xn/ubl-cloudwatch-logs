@@ -26,8 +26,8 @@ def hash_password(password: str) -> str:
 
 USERS_DB = {
     "admin": {
-        "username": "admin",
-        "hashed_password": hash_password("admin123"),
+        "username": "admin-ubl",
+        "hashed_password": hash_password("admin-ubl123"),
         "role": "admin",
         "disabled": False,
     },
