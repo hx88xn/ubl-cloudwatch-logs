@@ -31,10 +31,10 @@ USERS_DB = {
         "role": "admin",
         "disabled": False,
     },
-    "stakeholder": {
+    "ubl-test-team": {
         "username": "ubl-test-team",
         "hashed_password": hash_password("ubl-test-team123"),
-        "role": "stakeholder",
+        "role": "ubl-test-team",
         "disabled": False,
     },
 }
