@@ -724,69 +724,94 @@
             const uuidRegex = /\[([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\]/g;
             const groups = {};
             const noUUIDLogs = [];
+            const processedLogIds = new Set();
 
-            logs.forEach(log => {
+            logs.forEach((log, index) => {
                 const matches = [...log.message.matchAll(uuidRegex)];
                 if (matches && matches.length > 0) {
-                    matches.forEach(match => {
-                        const uuid = match[1];
-                        if (!groups[uuid]) {
-                            groups[uuid] = [];
-                        }
-                        groups[uuid].push(log);
-                    });
-                } else {
-                    noUUIDLogs.push(log);
+                    const uuid = matches[0][1]; // Use first UUID found
+                    if (!groups[uuid]) {
+                        groups[uuid] = [];
+                    }
+                    groups[uuid].push({...log, _index: index});
+                    processedLogIds.add(index);
                 }
+            });
+
+            // Collect non-UUID logs
+            logs.forEach((log, index) => {
+                if (!processedLogIds.has(index)) {
+                    noUUIDLogs.push({...log, _index: index});
+                }
+            });
+
+            // Sort logs within each UUID group by timestamp (newest first)
+            Object.keys(groups).forEach(uuid => {
+                groups[uuid].sort((a, b) => b.timestamp - a.timestamp);
             });
 
             return { groups, noUUIDLogs };
         }
 
         function renderUUIDGroups(uuidGroups) {
-            let html = '';
+            // Create a timeline of items (UUID groups and individual non-UUID logs)
+            const timelineItems = [];
 
-            Object.keys(uuidGroups.groups).sort().forEach(uuid => {
+            // Add UUID groups with their most recent timestamp
+            Object.keys(uuidGroups.groups).forEach(uuid => {
                 const logs = uuidGroups.groups[uuid];
-                html += `
-                    <div class="uuid-group">
-                        <div class="uuid-group-header">
-                            <div class="uuid-group-title">
-                                🔑 UUID: ${uuid}
-                            </div>
-                            <div class="uuid-group-count">${logs.length} log${logs.length !== 1 ? 's' : ''}</div>
-                        </div>
-                        <div class="uuid-group-logs">
-                            ${logs.map(log => `
-                                <div class="log-entry">
-                                    <span class="log-timestamp">[${log.formatted_time}]</span>
-                                    <span class="log-message">${escapeHtml(log.message)}</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
+                const mostRecentTimestamp = logs[0]?.timestamp || 0;
+                timelineItems.push({
+                    type: 'uuid-group',
+                    uuid: uuid,
+                    logs: logs,
+                    timestamp: mostRecentTimestamp
+                });
             });
 
-            if (uuidGroups.noUUIDLogs.length > 0) {
-                html += `
-                    <div class="uuid-group" style="border-color: rgba(255, 255, 255, 0.2);">
-                        <div class="uuid-group-header" style="background: rgba(255, 255, 255, 0.05); border-left-color: rgba(255, 255, 255, 0.3);">
-                            <div class="uuid-group-count" style="background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.6);">
-                                ${uuidGroups.noUUIDLogs.length} log${uuidGroups.noUUIDLogs.length !== 1 ? 's' : ''}
+            // Add individual non-UUID logs
+            uuidGroups.noUUIDLogs.forEach(log => {
+                timelineItems.push({
+                    type: 'single-log',
+                    log: log,
+                    timestamp: log.timestamp
+                });
+            });
+
+            // Sort all items by timestamp descending (newest first)
+            timelineItems.sort((a, b) => b.timestamp - a.timestamp);
+
+            // Render the timeline
+            let html = '';
+            timelineItems.forEach(item => {
+                if (item.type === 'uuid-group') {
+                    html += `
+                        <div class="uuid-group">
+                            <div class="uuid-group-header">
+                                <div class="uuid-group-title">
+                                    🔑 ${item.uuid}
+                                </div>
+                                <div class="uuid-group-count">${item.logs.length} log${item.logs.length !== 1 ? 's' : ''}</div>
+                            </div>
+                            <div class="uuid-group-logs">
+                                ${item.logs.map(log => `
+                                    <div class="log-entry">
+                                        <span class="log-timestamp">[${log.formatted_time}]</span>
+                                        <span class="log-message">${escapeHtml(log.message)}</span>
+                                    </div>
+                                `).join('')}
                             </div>
                         </div>
-                        <div class="uuid-group-logs">
-                            ${uuidGroups.noUUIDLogs.map(log => `
-                                <div class="log-entry">
-                                    <span class="log-timestamp">[${log.formatted_time}]</span>
-                                    <span class="log-message">${escapeHtml(log.message)}</span>
-                                </div>
-                            `).join('')}
+                    `;
+                } else {
+                    html += `
+                        <div class="log-entry" style="margin-bottom: 8px;">
+                            <span class="log-timestamp">[${item.log.formatted_time}]</span>
+                            <span class="log-message">${escapeHtml(item.log.message)}</span>
                         </div>
-                    </div>
-                `;
-            }
+                    `;
+                }
+            });
 
             return html || `
                 <div class="empty-state">
