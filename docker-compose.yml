@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: ubl-cloudwatch-logs
     ports:
-      - "8002:8002"
+      - "6067:6067"
     env_file:
       - .env
     restart: unless-stopped

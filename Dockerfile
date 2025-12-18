@@ -24,7 +24,7 @@ COPY templates/ ./templates/
 RUN mkdir -p ./static
 
 # Expose port
-EXPOSE 8002
+EXPOSE 6067
 
 # Run the application
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8002"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "6067"]
