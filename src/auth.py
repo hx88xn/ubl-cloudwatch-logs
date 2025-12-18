@@ -28,7 +28,7 @@ USERS_DB = {
     "admin-ubl": {
         "username": "admin-ubl",
         "hashed_password": hash_password("admin-ubl123"),
-        "role": "admin",
+        "role": "admin-ubl",
         "disabled": False,
     },
     "ubl-test-team": {
