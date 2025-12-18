@@ -11,7 +11,6 @@ from src.config import (
     CACHE_TTL_SECONDS
 )
 
-# Filter patterns - logs containing these strings will be excluded
 FILTER_PATTERNS = [
     'Data inserted into MySQL database',
     '✅ Background task scheduled successfully',
@@ -25,7 +24,6 @@ FILTER_PATTERNS = [
     'GET /docs'
 ]
 
-# App logs patterns - logs containing these strings will be included
 APP_LOGS_PATTERNS = [
     'Beneficiaries: ',
     'Final Response: ',
@@ -34,20 +32,12 @@ APP_LOGS_PATTERNS = [
 ]
 
 def should_filter_log(message: str) -> bool:
-    """
-    Check if a log message should be filtered out.
-    Returns True if the message contains any of the filter patterns.
-    """
     for pattern in FILTER_PATTERNS:
         if pattern in message:
             return True
     return False
 
 def should_include_app_log(message: str) -> bool:
-    """
-    Check if a log message should be included in app logs.
-    Returns True if the message contains any of the app log patterns.
-    """
     for pattern in APP_LOGS_PATTERNS:
         if pattern in message:
             return True
@@ -222,10 +212,6 @@ def fetch_app_logs(
     page: int = 1,
     page_size: int = 50
 ):
-    """
-    Fetch logs that contain app-specific patterns.
-    Filters for: Beneficiaries, Final Response, Phone contacts, Bill types
-    """
     global _logs_cache
     client = get_cloudwatch_client()
     

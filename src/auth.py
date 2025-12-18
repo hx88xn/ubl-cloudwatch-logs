@@ -32,11 +32,11 @@ USERS_DB = {
         "disabled": False,
     },
     "stakeholder": {
-        "username": "stakeholder",
-        "hashed_password": hash_password("stakeholder123"),
+        "username": "ubl-test-team",
+        "hashed_password": hash_password("ubl-test-team123"),
         "role": "stakeholder",
         "disabled": False,
-    }
+    },
 }
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
