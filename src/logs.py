@@ -21,7 +21,17 @@ FILTER_PATTERNS = [
     'Preprocessed text: ',
     '🔄 Transcribing audio (supports Urdu + English)...',
     'GET /health',
-    'GET /docs'
+    'GET /docs',
+    # Filter HTTP access logs (security scans, bots, probes)
+    'HTTP/1.1" 404',
+    'HTTP/1.1" 405',
+    'HTTP/1.1" 200 OK',
+    '"GET / HTTP',
+    '"POST / HTTP',
+    '/.git/',
+    '/.env',
+    '/api-docs/',
+    '/service/api-docs',
 ]
 
 APP_LOGS_PATTERNS = [

@@ -647,18 +647,20 @@
             if (isLoading && showLoadingState) return;
 
             const hours = document.getElementById('timeRangeSelect').value || '1';
-            const limit = 1000;
             const search = document.getElementById('searchInput').value.trim();
-            const currentPageSize = pageSize;
+            
+            // Fetch ALL logs at once to ensure proper UUID grouping (no pagination split)
+            const fetchLimit = 10000;
+            const fetchPageSize = 10000;
 
-            currentPage = page;
+            currentPage = 1;
 
             if (showLoadingState) {
                 showLoading();
             }
 
             try {
-                let url = `/api/logs?hours=${hours}&limit=${limit}&page=${page}&page_size=${currentPageSize}`;
+                let url = `/api/logs?hours=${hours}&limit=${fetchLimit}&page=1&page_size=${fetchPageSize}`;
                 if (search) {
                     url += `&search=${encodeURIComponent(search)}`;
                 }
@@ -681,11 +683,18 @@
 
                 const data = await response.json();
                 allLogs = data.logs;
-                totalPages = data.total_pages || Math.ceil(data.total / currentPageSize) || 1;
+                totalPages = 1;
 
                 displayLogs(data);
                 updateStats(data);
-                updatePagination(data);
+                
+                // Hide pagination since we're fetching all logs
+                const prevBtn = document.getElementById('prevBtn');
+                const nextBtn = document.getElementById('nextBtn');
+                const pageInfo = document.querySelector('.page-info');
+                if (prevBtn) prevBtn.style.display = 'none';
+                if (nextBtn) nextBtn.style.display = 'none';
+                if (pageInfo) pageInfo.textContent = `${data.logs?.length || 0} logs loaded`;
 
                 showToast('✓ Logs refreshed');
             } catch (error) {
@@ -783,6 +792,8 @@
 
             // Render the timeline
             let html = '';
+            const uuidPattern = /\[?[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\]?/g;
+            
             timelineItems.forEach(item => {
                 if (item.type === 'uuid-group') {
                     html += `
@@ -794,12 +805,15 @@
                                 <div class="uuid-group-count">${item.logs.length} log${item.logs.length !== 1 ? 's' : ''}</div>
                             </div>
                             <div class="uuid-group-logs">
-                                ${item.logs.map(log => `
+                                ${item.logs.map(log => {
+                                    // Remove UUID from message since it's shown in header
+                                    const cleanMessage = log.message.replace(uuidPattern, '').trim();
+                                    return `
                                     <div class="log-entry">
                                         <span class="log-timestamp">[${log.formatted_time}]</span>
-                                        <span class="log-message">${escapeHtml(log.message)}</span>
+                                        <span class="log-message">${escapeHtml(cleanMessage)}</span>
                                     </div>
-                                `).join('')}
+                                `}).join('')}
                             </div>
                         </div>
                     `;
@@ -824,22 +838,17 @@
 
 
         function updateStats(data) {
-            document.getElementById('totalLogs').textContent = data.total || 0;
-            document.getElementById('currentPage').textContent = currentPage;
-            document.getElementById('pageNumber').textContent = currentPage;
-            document.getElementById('totalPages').textContent = totalPages;
-            document.getElementById('timeRangeDisplay').textContent =
-                document.getElementById('timeRangeSelect').options[document.getElementById('timeRangeSelect').selectedIndex].text.replace('Last ', '');
-            document.getElementById('logCount').textContent = `${data.logs?.length || 0} of ${data.total || 0} entries`;
-        }
-
-
-        function updatePagination(data) {
-            const prevBtn = document.getElementById('prevBtn');
-            const nextBtn = document.getElementById('nextBtn');
-
-            prevBtn.disabled = currentPage <= 1;
-            nextBtn.disabled = !data.has_more && currentPage >= totalPages;
+            const totalLogsEl = document.getElementById('totalLogs');
+            const currentPageEl = document.getElementById('currentPage');
+            const timeRangeDisplayEl = document.getElementById('timeRangeDisplay');
+            const logCountEl = document.getElementById('logCount');
+            
+            if (totalLogsEl) totalLogsEl.textContent = data.logs?.length || 0;
+            if (currentPageEl) currentPageEl.textContent = '1';
+            if (timeRangeDisplayEl) {
+                timeRangeDisplayEl.textContent = document.getElementById('timeRangeSelect').options[document.getElementById('timeRangeSelect').selectedIndex].text.replace('Last ', '');
+            }
+            if (logCountEl) logCountEl.textContent = `${data.logs?.length || 0} logs`;
         }
 
 
