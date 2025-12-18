@@ -134,13 +134,13 @@ async def get_app_logs(
     hours: int = 1,
     limit: int = 10000,
     page: int = 1,
-    page_size: int = 50,
+    page_size: int = 10000,
     current_user: User = Depends(get_current_user)
 ):
     hours = max(1, min(hours, 168))
     limit = max(100, min(limit, 50000))
     page = max(1, page)
-    page_size = max(10, min(page_size, 500))
+    page_size = max(10, min(page_size, 50000))  # Allow large page size for UUID grouping
     
     result = fetch_app_logs(
         hours=hours,

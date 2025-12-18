@@ -718,17 +718,19 @@
             if (isLoading && showLoadingState) return;
 
             const hours = document.getElementById('timeRangeSelect').value || '1';
-            const limit = 10000;
-            const currentPageSize = pageSize;
+            
+            // Fetch ALL logs at once to ensure proper UUID grouping (no pagination split)
+            const fetchLimit = 10000;
+            const fetchPageSize = 10000;
 
-            currentPage = page;
+            currentPage = 1;
 
             if (showLoadingState) {
                 showLoading();
             }
 
             try {
-                let url = `/api/app-logs?hours=${hours}&limit=${limit}&page=${page}&page_size=${currentPageSize}`;
+                let url = `/api/app-logs?hours=${hours}&limit=${fetchLimit}&page=1&page_size=${fetchPageSize}`;
 
                 const response = await fetch(url, {
                     headers: {
@@ -748,11 +750,18 @@
 
                 const data = await response.json();
                 allLogs = data.logs;
-                totalPages = data.total_pages || Math.ceil(data.total / currentPageSize) || 1;
+                totalPages = 1;
 
                 displayLogs(data);
                 updateStats(data);
-                updatePagination(data);
+                
+                // Hide pagination since we're fetching all logs
+                const prevBtn = document.getElementById('prevBtn');
+                const nextBtn = document.getElementById('nextBtn');
+                const pageInfo = document.querySelector('.page-info');
+                if (prevBtn) prevBtn.style.display = 'none';
+                if (nextBtn) nextBtn.style.display = 'none';
+                if (pageInfo) pageInfo.textContent = `${data.logs?.length || 0} logs loaded`;
 
                 showToast('✓ App logs refreshed');
             } catch (error) {
@@ -791,69 +800,99 @@
             const uuidRegex = /\[([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\]/g;
             const groups = {};
             const noUUIDLogs = [];
+            const processedLogIds = new Set();
 
-            logs.forEach(log => {
+            logs.forEach((log, index) => {
                 const matches = [...log.message.matchAll(uuidRegex)];
                 if (matches && matches.length > 0) {
-                    matches.forEach(match => {
-                        const uuid = match[1];
-                        if (!groups[uuid]) {
-                            groups[uuid] = [];
-                        }
-                        groups[uuid].push(log);
-                    });
-                } else {
-                    noUUIDLogs.push(log);
+                    const uuid = matches[0][1]; // Use first UUID found
+                    if (!groups[uuid]) {
+                        groups[uuid] = [];
+                    }
+                    groups[uuid].push({...log, _index: index});
+                    processedLogIds.add(index);
                 }
+            });
+
+            // Collect non-UUID logs
+            logs.forEach((log, index) => {
+                if (!processedLogIds.has(index)) {
+                    noUUIDLogs.push({...log, _index: index});
+                }
+            });
+
+            // Sort logs within each UUID group by timestamp (newest first)
+            Object.keys(groups).forEach(uuid => {
+                groups[uuid].sort((a, b) => b.timestamp - a.timestamp);
             });
 
             return { groups, noUUIDLogs };
         }
 
         function renderUUIDGroups(uuidGroups) {
-            let html = '';
+            // Create a timeline of items (UUID groups and individual non-UUID logs)
+            const timelineItems = [];
 
-            Object.keys(uuidGroups.groups).sort().forEach(uuid => {
+            // Add UUID groups with their most recent timestamp
+            Object.keys(uuidGroups.groups).forEach(uuid => {
                 const logs = uuidGroups.groups[uuid];
-                html += `
-                    <div class="uuid-group">
-                        <div class="uuid-group-header">
-                            <div class="uuid-group-title">
-                                🔑 UUID: ${uuid}
-                            </div>
-                            <div class="uuid-group-count">${logs.length} log${logs.length !== 1 ? 's' : ''}</div>
-                        </div>
-                        <div class="uuid-group-logs">
-                            ${logs.map(log => `
-                                <div class="log-entry">
-                                    <span class="log-timestamp">[${log.formatted_time}]</span>
-                                    <span class="log-message">${escapeHtml(log.message)}</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
+                const mostRecentTimestamp = logs[0]?.timestamp || 0;
+                timelineItems.push({
+                    type: 'uuid-group',
+                    uuid: uuid,
+                    logs: logs,
+                    timestamp: mostRecentTimestamp
+                });
             });
 
-            if (uuidGroups.noUUIDLogs.length > 0) {
-                html += `
-                    <div class="uuid-group" style="border-color: rgba(255, 255, 255, 0.2);">
-                        <div class="uuid-group-header" style="background: rgba(255, 255, 255, 0.05); border-left-color: rgba(255, 255, 255, 0.3);">
-                            <div class="uuid-group-count" style="background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.6);">
-                                ${uuidGroups.noUUIDLogs.length} log${uuidGroups.noUUIDLogs.length !== 1 ? 's' : ''}
+            // Add individual non-UUID logs
+            uuidGroups.noUUIDLogs.forEach(log => {
+                timelineItems.push({
+                    type: 'single-log',
+                    log: log,
+                    timestamp: log.timestamp
+                });
+            });
+
+            // Sort all items by timestamp descending (newest first)
+            timelineItems.sort((a, b) => b.timestamp - a.timestamp);
+
+            // Render the timeline
+            let html = '';
+            const uuidPattern = /\[?[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\]?/g;
+            
+            timelineItems.forEach(item => {
+                if (item.type === 'uuid-group') {
+                    html += `
+                        <div class="uuid-group">
+                            <div class="uuid-group-header">
+                                <div class="uuid-group-title">
+                                    🔑 ${item.uuid}
+                                </div>
+                                <div class="uuid-group-count">${item.logs.length} log${item.logs.length !== 1 ? 's' : ''}</div>
+                            </div>
+                            <div class="uuid-group-logs">
+                                ${item.logs.map(log => {
+                                    // Remove UUID from message since it's shown in header
+                                    const cleanMessage = log.message.replace(uuidPattern, '').trim();
+                                    return `
+                                    <div class="log-entry">
+                                        <span class="log-timestamp">[${log.formatted_time}]</span>
+                                        <span class="log-message">${escapeHtml(cleanMessage)}</span>
+                                    </div>
+                                `}).join('')}
                             </div>
                         </div>
-                        <div class="uuid-group-logs">
-                            ${uuidGroups.noUUIDLogs.map(log => `
-                                <div class="log-entry">
-                                    <span class="log-timestamp">[${log.formatted_time}]</span>
-                                    <span class="log-message">${escapeHtml(log.message)}</span>
-                                </div>
-                            `).join('')}
+                    `;
+                } else {
+                    html += `
+                        <div class="log-entry" style="margin-bottom: 8px;">
+                            <span class="log-timestamp">[${item.log.formatted_time}]</span>
+                            <span class="log-message">${escapeHtml(item.log.message)}</span>
                         </div>
-                    </div>
-                `;
-            }
+                    `;
+                }
+            });
 
             return html || `
                 <div class="empty-state">
@@ -865,22 +904,17 @@
 
 
         function updateStats(data) {
-            document.getElementById('totalLogs').textContent = data.total || 0;
-            document.getElementById('currentPage').textContent = currentPage;
-            document.getElementById('pageNumber').textContent = currentPage;
-            document.getElementById('totalPages').textContent = totalPages;
-            document.getElementById('timeRangeDisplay').textContent =
-                document.getElementById('timeRangeSelect').options[document.getElementById('timeRangeSelect').selectedIndex].text.replace('Last ', '');
-            document.getElementById('logCount').textContent = `${data.logs?.length || 0} of ${data.total || 0} entries`;
-        }
-
-
-        function updatePagination(data) {
-            const prevBtn = document.getElementById('prevBtn');
-            const nextBtn = document.getElementById('nextBtn');
-
-            prevBtn.disabled = currentPage <= 1;
-            nextBtn.disabled = !data.has_more && currentPage >= totalPages;
+            const totalLogsEl = document.getElementById('totalLogs');
+            const currentPageEl = document.getElementById('currentPage');
+            const timeRangeDisplayEl = document.getElementById('timeRangeDisplay');
+            const logCountEl = document.getElementById('logCount');
+            
+            if (totalLogsEl) totalLogsEl.textContent = data.logs?.length || 0;
+            if (currentPageEl) currentPageEl.textContent = '1';
+            if (timeRangeDisplayEl) {
+                timeRangeDisplayEl.textContent = document.getElementById('timeRangeSelect').options[document.getElementById('timeRangeSelect').selectedIndex].text.replace('Last ', '');
+            }
+            if (logCountEl) logCountEl.textContent = `${data.logs?.length || 0} logs`;
         }
 
 
