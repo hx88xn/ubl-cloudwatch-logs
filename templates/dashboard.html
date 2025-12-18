@@ -721,14 +721,15 @@
         }
 
         function groupLogsByUUID(logs) {
-            const uuidRegex = /\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}\b/g;
+            const uuidRegex = /\[([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\]/g;
             const groups = {};
             const noUUIDLogs = [];
 
             logs.forEach(log => {
-                const uuids = log.message.match(uuidRegex);
-                if (uuids && uuids.length > 0) {
-                    uuids.forEach(uuid => {
+                const matches = [...log.message.matchAll(uuidRegex)];
+                if (matches && matches.length > 0) {
+                    matches.forEach(match => {
+                        const uuid = match[1];
                         if (!groups[uuid]) {
                             groups[uuid] = [];
                         }

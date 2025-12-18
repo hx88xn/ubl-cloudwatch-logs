@@ -64,7 +64,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 @app.get("/api/logs")
 async def get_logs(
     hours: int = 1,
-    limit: int = 1000,
+    limit: int = 10000,
     page: int = 1,
     page_size: int = 50,
     search: Optional[str] = None,
