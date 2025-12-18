@@ -80,16 +80,20 @@ def fetch_logs(
     global _logs_cache
     client = get_cloudwatch_client()
     
-    end_time = datetime.now()
+    # start_time = current time (logs start displaying from here - newest)
+    # end_time = time range back (logs end here - oldest)
+    start_time = datetime.now()
     
     if hours >= 24:
         days_back = hours // 24
-        start_time = end_time.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days_back)
+        end_time = start_time.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days_back)
     else:
-        start_time = end_time - timedelta(hours=hours)
+        end_time = start_time - timedelta(hours=hours)
     
-    start_time_ms = int(start_time.timestamp() * 1000)
-    end_time_ms = int(end_time.timestamp() * 1000)
+    # CloudWatch API requires: startTime < endTime
+    # So we pass end_time (older) as API startTime, start_time (newer) as API endTime
+    api_start_time_ms = int(end_time.timestamp() * 1000)
+    api_end_time_ms = int(start_time.timestamp() * 1000)
     
     if hours <= 1:
         smart_limit = min(limit, 5000)
@@ -115,32 +119,35 @@ def fetch_logs(
     else:
         try:
             all_events = []
+            next_token = None
             
-            paginator = client.get_paginator('filter_log_events')
-            
-            pagination_config = {
-                'logGroupName': LOG_GROUP_NAME,
-                'startTime': start_time_ms,
-                'endTime': end_time_ms,
-                'PaginationConfig': {
-                    'MaxItems': smart_limit,
-                    'PageSize': 100
+            # Fetch ALL logs in the time range first (CloudWatch returns oldest first)
+            while True:
+                params = {
+                    'logGroupName': LOG_GROUP_NAME,
+                    'startTime': api_start_time_ms,
+                    'endTime': api_end_time_ms,
+                    'limit': 10000
                 }
-            }
-            
-            if search_query:
-                pagination_config['filterPattern'] = search_query
-            
-            page_iterator = paginator.paginate(**pagination_config)
-            
-            for page_response in page_iterator:
-                events = page_response.get('events', [])
+                
+                if search_query:
+                    params['filterPattern'] = search_query
+                
+                if next_token:
+                    params['nextToken'] = next_token
+                
+                response = client.filter_log_events(**params)
+                events = response.get('events', [])
                 all_events.extend(events)
-                if len(all_events) >= smart_limit:
+                
+                next_token = response.get('nextToken')
+                if not next_token:
                     break
             
+            # NOW sort by timestamp descending (newest first)
             all_events.sort(key=lambda x: x['timestamp'], reverse=True)
             
+            # Apply limit AFTER sorting to keep the newest logs
             all_events = all_events[:smart_limit]
             
             # Filter out unwanted log messages BEFORE caching
@@ -215,16 +222,19 @@ def fetch_app_logs(
     global _logs_cache
     client = get_cloudwatch_client()
     
-    end_time = datetime.now()
+    # start_time = current time (logs start displaying from here - newest)
+    # end_time = time range back (logs end here - oldest)
+    start_time = datetime.now()
     
     if hours >= 24:
         days_back = hours // 24
-        start_time = end_time.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days_back)
+        end_time = start_time.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days_back)
     else:
-        start_time = end_time - timedelta(hours=hours)
+        end_time = start_time - timedelta(hours=hours)
     
-    start_time_ms = int(start_time.timestamp() * 1000)
-    end_time_ms = int(end_time.timestamp() * 1000)
+    # CloudWatch API requires: startTime < endTime
+    api_start_time_ms = int(end_time.timestamp() * 1000)
+    api_end_time_ms = int(start_time.timestamp() * 1000)
     
     if hours <= 1:
         smart_limit = min(limit, 5000)
@@ -237,29 +247,32 @@ def fetch_app_logs(
     
     try:
         all_events = []
+        next_token = None
         
-        paginator = client.get_paginator('filter_log_events')
-        
-        pagination_config = {
-            'logGroupName': LOG_GROUP_NAME,
-            'startTime': start_time_ms,
-            'endTime': end_time_ms,
-            'PaginationConfig': {
-                'MaxItems': smart_limit,
-                'PageSize': 100
+        # Fetch ALL logs in the time range first (CloudWatch returns oldest first)
+        while True:
+            params = {
+                'logGroupName': LOG_GROUP_NAME,
+                'startTime': api_start_time_ms,
+                'endTime': api_end_time_ms,
+                'limit': 10000
             }
-        }
-        
-        page_iterator = paginator.paginate(**pagination_config)
-        
-        for page_response in page_iterator:
-            events = page_response.get('events', [])
+            
+            if next_token:
+                params['nextToken'] = next_token
+            
+            response = client.filter_log_events(**params)
+            events = response.get('events', [])
             all_events.extend(events)
-            if len(all_events) >= smart_limit:
+            
+            next_token = response.get('nextToken')
+            if not next_token:
                 break
         
+        # NOW sort by timestamp descending (newest first)
         all_events.sort(key=lambda x: x['timestamp'], reverse=True)
         
+        # Apply limit AFTER sorting to keep the newest logs
         all_events = all_events[:smart_limit]
         
         # Filter to include ONLY app logs
