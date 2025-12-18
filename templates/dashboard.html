@@ -343,6 +343,56 @@
             word-break: break-word;
         }
 
+        .uuid-group {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(102, 126, 234, 0.4);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            animation: fadeInLog 0.3s ease-out;
+        }
+
+        .uuid-group-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: rgba(102, 126, 234, 0.2);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            border-left: 4px solid #667eea;
+        }
+
+        .uuid-group-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            font-weight: 600;
+            color: #fbbf24;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .uuid-group-count {
+            background: rgba(251, 191, 36, 0.2);
+            color: #fbbf24;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .uuid-group-logs {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .uuid-group .log-entry {
+            margin-bottom: 0;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -597,7 +647,7 @@
             if (isLoading && showLoadingState) return;
 
             const hours = document.getElementById('timeRangeSelect').value || '1';
-            const limit = 10000;
+            const limit = 1000;
             const search = document.getElementById('searchInput').value.trim();
             const currentPageSize = pageSize;
 
@@ -666,13 +716,85 @@
                 return;
             }
 
-            container.innerHTML = data.logs.map(log => `
-                <div class="log-entry">
-                    <span class="log-timestamp">[${log.formatted_time}]</span>
-                    <span class="log-message">${escapeHtml(log.message)}</span>
-                </div>
-            `).join('');
+            const uuidGroups = groupLogsByUUID(data.logs);
+            container.innerHTML = renderUUIDGroups(uuidGroups);
         }
+
+        function groupLogsByUUID(logs) {
+            const uuidRegex = /\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}\b/g;
+            const groups = {};
+            const noUUIDLogs = [];
+
+            logs.forEach(log => {
+                const uuids = log.message.match(uuidRegex);
+                if (uuids && uuids.length > 0) {
+                    uuids.forEach(uuid => {
+                        if (!groups[uuid]) {
+                            groups[uuid] = [];
+                        }
+                        groups[uuid].push(log);
+                    });
+                } else {
+                    noUUIDLogs.push(log);
+                }
+            });
+
+            return { groups, noUUIDLogs };
+        }
+
+        function renderUUIDGroups(uuidGroups) {
+            let html = '';
+
+            Object.keys(uuidGroups.groups).sort().forEach(uuid => {
+                const logs = uuidGroups.groups[uuid];
+                html += `
+                    <div class="uuid-group">
+                        <div class="uuid-group-header">
+                            <div class="uuid-group-title">
+                                🔑 UUID: ${uuid}
+                            </div>
+                            <div class="uuid-group-count">${logs.length} log${logs.length !== 1 ? 's' : ''}</div>
+                        </div>
+                        <div class="uuid-group-logs">
+                            ${logs.map(log => `
+                                <div class="log-entry">
+                                    <span class="log-timestamp">[${log.formatted_time}]</span>
+                                    <span class="log-message">${escapeHtml(log.message)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+
+            if (uuidGroups.noUUIDLogs.length > 0) {
+                html += `
+                    <div class="uuid-group" style="border-color: rgba(255, 255, 255, 0.2);">
+                        <div class="uuid-group-header" style="background: rgba(255, 255, 255, 0.05); border-left-color: rgba(255, 255, 255, 0.3);">
+                            <div class="uuid-group-count" style="background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.6);">
+                                ${uuidGroups.noUUIDLogs.length} log${uuidGroups.noUUIDLogs.length !== 1 ? 's' : ''}
+                            </div>
+                        </div>
+                        <div class="uuid-group-logs">
+                            ${uuidGroups.noUUIDLogs.map(log => `
+                                <div class="log-entry">
+                                    <span class="log-timestamp">[${log.formatted_time}]</span>
+                                    <span class="log-message">${escapeHtml(log.message)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            return html || `
+                <div class="empty-state">
+                    <div class="empty-state-icon">📭</div>
+                    <div>No logs found</div>
+                </div>
+            `;
+        }
+
 
 
         function updateStats(data) {

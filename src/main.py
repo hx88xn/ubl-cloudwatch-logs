@@ -11,6 +11,7 @@ from src.auth import (
     authenticate_user, create_access_token
 )
 from src.logs import fetch_logs, get_log_streams, fetch_app_logs
+from src.utils.helper import filter_uuid, extract_uuids_from_logs
 
 app = FastAPI(title="CloudWatch Logs Viewer", version="1.0.0")
 templates = Jinja2Templates(directory="templates")
@@ -63,10 +64,11 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 @app.get("/api/logs")
 async def get_logs(
     hours: int = 1,
-    limit: int = 10000,
+    limit: int = 1000,
     page: int = 1,
     page_size: int = 50,
     search: Optional[str] = None,
+    uuid: Optional[str] = None,
     current_user: User = Depends(get_current_user)
 ):
     hours = max(1, min(hours, 168))
@@ -82,12 +84,50 @@ async def get_logs(
         page_size=page_size
     )
     
+    if uuid:
+        uuid_map = filter_uuid(result['logs'])
+        filtered_logs = uuid_map.get(uuid, [])
+        
+        total_filtered = len(filtered_logs)
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        paginated_logs = filtered_logs[start_idx:end_idx]
+        
+        result = {
+            'logs': paginated_logs,
+            'total': total_filtered,
+            'page': page,
+            'page_size': page_size,
+            'has_more': end_idx < total_filtered,
+            'total_pages': (total_filtered + page_size - 1) // page_size if total_filtered > 0 else 1
+        }
+    
     return result
 
 @app.get("/api/logs/streams")
 async def get_streams(current_user: User = Depends(get_current_user)):
     streams = get_log_streams()
     return {"streams": streams}
+
+@app.get("/api/logs/uuids")
+async def get_uuids(
+    hours: int = 1,
+    limit: int = 10000,
+    current_user: User = Depends(get_current_user)
+):
+    hours = max(1, min(hours, 168))
+    limit = max(100, min(limit, 50000))
+    
+    result = fetch_logs(
+        hours=hours, 
+        limit=limit, 
+        search_query=None,
+        page=1,
+        page_size=limit
+    )
+    
+    uuids = extract_uuids_from_logs(result['logs'])
+    return {"uuids": uuids, "count": len(uuids)}
 
 @app.get("/api/app-logs")
 async def get_app_logs(
