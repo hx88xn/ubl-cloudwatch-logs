@@ -25,7 +25,7 @@ def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
 USERS_DB = {
-    "admin": {
+    "admin-ubl": {
         "username": "admin-ubl",
         "hashed_password": hash_password("admin-ubl123"),
         "role": "admin",
