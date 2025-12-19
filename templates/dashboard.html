@@ -162,7 +162,7 @@
         input,
         select {
             padding: 10px 14px;
-            background: rgba(255, 255, 255, 0.08);
+            background: #2d3748;
             border: 1px solid rgba(255, 255, 255, 0.15);
             border-radius: 8px;
             color: white;
@@ -171,11 +171,17 @@
             transition: all 0.3s ease;
         }
 
+        select option {
+            background: #2d3748;
+            color: white;
+            padding: 10px;
+        }
+
         input:focus,
         select:focus {
             outline: none;
             border-color: #667eea;
-            background: rgba(255, 255, 255, 0.12);
+            background: #374151;
         }
 
         .action-buttons {
@@ -347,24 +353,45 @@
             background: rgba(255, 255, 255, 0.05);
             border: 2px solid rgba(102, 126, 234, 0.4);
             border-radius: 12px;
-            padding: 16px;
             margin-bottom: 16px;
             animation: fadeInLog 0.3s ease-out;
+            overflow: hidden;
         }
 
         .uuid-group-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 12px 16px;
+            padding: 14px 18px;
             background: rgba(102, 126, 234, 0.2);
-            border-radius: 8px;
-            margin-bottom: 12px;
             border-left: 4px solid #667eea;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s ease;
+        }
+
+        .uuid-group-header:hover {
+            background: rgba(102, 126, 234, 0.3);
+        }
+
+        .uuid-group-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .uuid-group-toggle {
+            font-size: 12px;
+            transition: transform 0.3s ease;
+            color: #667eea;
+        }
+
+        .uuid-group.expanded .uuid-group-toggle {
+            transform: rotate(90deg);
         }
 
         .uuid-group-title {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'Inter', sans-serif;
             font-size: 14px;
             font-weight: 600;
             color: #fbbf24;
@@ -383,9 +410,28 @@
         }
 
         .uuid-group-logs {
-            display: flex;
+            display: none;
             flex-direction: column;
             gap: 8px;
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.1);
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                max-height: 0;
+            }
+
+            to {
+                opacity: 1;
+                max-height: 2000px;
+            }
+        }
+
+        .uuid-group.expanded .uuid-group-logs {
+            display: flex;
         }
 
         .uuid-group .log-entry {
@@ -648,7 +694,7 @@
 
             const hours = document.getElementById('timeRangeSelect').value || '1';
             const search = document.getElementById('searchInput').value.trim();
-            
+
             // Fetch ALL logs at once to ensure proper UUID grouping (no pagination split)
             const fetchLimit = 10000;
             const fetchPageSize = 10000;
@@ -687,7 +733,7 @@
 
                 displayLogs(data);
                 updateStats(data);
-                
+
                 // Hide pagination since we're fetching all logs
                 const prevBtn = document.getElementById('prevBtn');
                 const nextBtn = document.getElementById('nextBtn');
@@ -742,7 +788,7 @@
                     if (!groups[uuid]) {
                         groups[uuid] = [];
                     }
-                    groups[uuid].push({...log, _index: index});
+                    groups[uuid].push({ ...log, _index: index });
                     processedLogIds.add(index);
                 }
             });
@@ -750,7 +796,7 @@
             // Collect non-UUID logs
             logs.forEach((log, index) => {
                 if (!processedLogIds.has(index)) {
-                    noUUIDLogs.push({...log, _index: index});
+                    noUUIDLogs.push({ ...log, _index: index });
                 }
             });
 
@@ -770,11 +816,13 @@
             Object.keys(uuidGroups.groups).forEach(uuid => {
                 const logs = uuidGroups.groups[uuid];
                 const mostRecentTimestamp = logs[0]?.timestamp || 0;
+                const firstLogTime = logs[0]?.formatted_time || 'Unknown time';
                 timelineItems.push({
                     type: 'uuid-group',
                     uuid: uuid,
                     logs: logs,
-                    timestamp: mostRecentTimestamp
+                    timestamp: mostRecentTimestamp,
+                    firstLogTime: firstLogTime
                 });
             });
 
@@ -793,22 +841,27 @@
             // Render the timeline
             let html = '';
             const uuidPattern = /\[?[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\]?/g;
-            
+            let groupIndex = 0;
+
             timelineItems.forEach(item => {
                 if (item.type === 'uuid-group') {
+                    const groupId = `uuid-group-${groupIndex++}`;
                     html += `
-                        <div class="uuid-group">
-                            <div class="uuid-group-header">
-                                <div class="uuid-group-title">
-                                    🔑 ${item.uuid}
+                        <div class="uuid-group" id="${groupId}">
+                            <div class="uuid-group-header" onclick="toggleUUIDGroup('${groupId}')">
+                                <div class="uuid-group-header-left">
+                                    <span class="uuid-group-toggle">▶</span>
+                                    <div class="uuid-group-title">
+                                        📅 ${item.firstLogTime}
+                                    </div>
                                 </div>
                                 <div class="uuid-group-count">${item.logs.length} log${item.logs.length !== 1 ? 's' : ''}</div>
                             </div>
                             <div class="uuid-group-logs">
                                 ${item.logs.map(log => {
-                                    // Remove UUID from message since it's shown in header
-                                    const cleanMessage = log.message.replace(uuidPattern, '').trim();
-                                    return `
+                        // Remove UUID from message since it's shown in header
+                        const cleanMessage = log.message.replace(uuidPattern, '').trim();
+                        return `
                                     <div class="log-entry">
                                         <span class="log-timestamp">[${log.formatted_time}]</span>
                                         <span class="log-message">${escapeHtml(cleanMessage)}</span>
@@ -835,6 +888,13 @@
             `;
         }
 
+        function toggleUUIDGroup(groupId) {
+            const group = document.getElementById(groupId);
+            if (group) {
+                group.classList.toggle('expanded');
+            }
+        }
+
 
 
         function updateStats(data) {
@@ -842,7 +902,7 @@
             const currentPageEl = document.getElementById('currentPage');
             const timeRangeDisplayEl = document.getElementById('timeRangeDisplay');
             const logCountEl = document.getElementById('logCount');
-            
+
             if (totalLogsEl) totalLogsEl.textContent = data.logs?.length || 0;
             if (currentPageEl) currentPageEl.textContent = '1';
             if (timeRangeDisplayEl) {

@@ -80,6 +80,15 @@ _logs_cache = {
     'search': None
 }
 
+def case_insensitive_search(message: str, search_query: str) -> bool:
+    """
+    Perform a case-insensitive search on the log message.
+    Returns True if the search query is found in the message (any case).
+    """
+    if not search_query:
+        return True
+    return search_query.lower() in message.lower()
+
 def fetch_logs(
     hours: int = 1,
     limit: int = 500,
@@ -120,18 +129,26 @@ def fetch_logs(
     
     cache_key = f"{hours}:{search_query}"
     now = datetime.now()
-    if (_logs_cache['data'] is not None and 
+    
+    # For search queries, we need to fetch without cache to get fresh, unfiltered data
+    # Then apply case-insensitive client-side filtering
+    use_cache = (
+        _logs_cache['data'] is not None and 
         _logs_cache['timestamp'] is not None and
         _logs_cache['hours'] == hours and
-        _logs_cache['search'] == search_query and
-        (now - _logs_cache['timestamp']).total_seconds() < cache_ttl):
+        _logs_cache['search'] is None and  # Only use cache if it's unfiltered data
+        (now - _logs_cache['timestamp']).total_seconds() < cache_ttl
+    )
+    
+    if use_cache and not search_query:
         all_events = _logs_cache['data']
     else:
         try:
             all_events = []
             next_token = None
             
-            # Fetch ALL logs in the time range first (CloudWatch returns oldest first)
+            # Fetch ALL logs in the time range (no CloudWatch filter pattern)
+            # We do client-side filtering for accurate case-insensitive search
             while True:
                 params = {
                     'logGroupName': LOG_GROUP_NAME,
@@ -140,8 +157,7 @@ def fetch_logs(
                     'limit': 10000
                 }
                 
-                if search_query:
-                    params['filterPattern'] = search_query
+                # Don't use CloudWatch filter - we'll do case-insensitive client-side filtering
                 
                 if next_token:
                     params['nextToken'] = next_token
@@ -166,15 +182,26 @@ def fetch_logs(
                 if not should_filter_log(event.get('message', ''))
             ]
             
-            _logs_cache = {
-                'data': all_events,
-                'timestamp': now,
-                'hours': hours,
-                'search': search_query
-            }
+            # Cache the UNFILTERED data for reuse
+            if not search_query:
+                _logs_cache = {
+                    'data': all_events,
+                    'timestamp': now,
+                    'hours': hours,
+                    'search': None
+                }
             
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error fetching logs: {str(e)}")
+    
+    # Apply case-insensitive search filter (works with lowercase, uppercase, mixed case)
+    if search_query:
+        search_term = search_query.strip()
+        all_events = [
+            event for event in all_events
+            if case_insensitive_search(event.get('message', ''), search_term)
+        ]
+    
     
     total_events = len(all_events)
     start_idx = (page - 1) * page_size
