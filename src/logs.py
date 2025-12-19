@@ -15,6 +15,7 @@ FILTER_PATTERNS = [
     'Data inserted into MySQL database',
     '✅ Background task scheduled successfully',
     '✅ Background task completed: Successfully uploaded',
+    '✅ Uploaded audio_files',
     'S3 Storage: Uploading audio file to S3...',
     'Using Low Cost Pipeline',
     'Processing command validation with GPT...',
