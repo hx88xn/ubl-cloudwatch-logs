@@ -16,6 +16,7 @@ FILTER_PATTERNS = [
     '✅ Background task scheduled successfully',
     '✅ Background task completed: Successfully uploaded',
     '✅ Uploaded audio_files',
+    'Time taken to transcribe audio:',
     'S3 Storage: Uploading audio file to S3...',
     'Using Low Cost Pipeline',
     'Processing command validation with GPT...',

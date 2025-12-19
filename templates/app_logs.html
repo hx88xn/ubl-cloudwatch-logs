@@ -213,6 +213,7 @@
             color: rgba(255, 255, 255, 0.7);
         }
 
+        input,
         select {
             padding: 10px 14px;
             background: #2d3748;
@@ -230,6 +231,7 @@
             padding: 10px;
         }
 
+        input:focus,
         select:focus {
             outline: none;
             border-color: #667eea;
@@ -654,6 +656,10 @@
         <div class="filters">
             <div class="filters-grid">
                 <div class="filter-group">
+                    <label>🔍 Search Logs</label>
+                    <input type="text" id="searchInput" placeholder="Search by keyword...">
+                </div>
+                <div class="filter-group">
                     <label>⏰ Time Range</label>
                     <select id="timeRangeSelect">
                         <option value="1">Last 1 hour</option>
@@ -677,6 +683,9 @@
             <div class="action-buttons">
                 <button class="btn btn-primary" onclick="fetchLogs()">
                     🔄 Refresh Logs
+                </button>
+                <button class="btn btn-secondary" onclick="clearFilters()">
+                    ✖️ Clear Filters
                 </button>
                 <button class="btn btn-secondary" onclick="exportLogs()">
                     💾 Export
@@ -716,7 +725,9 @@
         let currentPage = 1;
         let totalPages = 1;
         let allLogs = [];
+        let allLogsUnfiltered = [];  // Store unfiltered logs for search
         let isLoading = false;
+        let searchDebounceTimer = null;
         const token = localStorage.getItem('access_token');
         let pageSize = 50;
 
@@ -747,6 +758,14 @@
 
         // Check role on page load
         checkUserRole();
+
+        // Debounce function for search
+        function debounce(func, delay) {
+            return function (...args) {
+                clearTimeout(searchDebounceTimer);
+                searchDebounceTimer = setTimeout(() => func.apply(this, args), delay);
+            };
+        }
 
         // Convert timestamp to Pakistan time (UTC+5)
         function toPakistanTime(timestamp) {
@@ -792,6 +811,7 @@
             if (isLoading && showLoadingState) return;
 
             const hours = document.getElementById('timeRangeSelect').value || '1';
+            const searchQuery = document.getElementById('searchInput').value.trim().toLowerCase();
 
             // Fetch ALL logs at once to ensure proper UUID grouping (no pagination split)
             const fetchLimit = 10000;
@@ -823,11 +843,21 @@
                 }
 
                 const data = await response.json();
-                allLogs = data.logs;
+                allLogsUnfiltered = data.logs;  // Store unfiltered logs
+
+                // Apply client-side search filter (case-insensitive)
+                if (searchQuery) {
+                    allLogs = allLogsUnfiltered.filter(log =>
+                        log.message.toLowerCase().includes(searchQuery)
+                    );
+                } else {
+                    allLogs = allLogsUnfiltered;
+                }
+
                 totalPages = 1;
 
-                displayLogs(data);
-                updateStats(data);
+                displayLogs({ logs: allLogs });
+                updateStats({ logs: allLogs });
 
                 // Hide pagination since we're fetching all logs
                 const prevBtn = document.getElementById('prevBtn');
@@ -835,7 +865,7 @@
                 const pageInfo = document.querySelector('.page-info');
                 if (prevBtn) prevBtn.style.display = 'none';
                 if (nextBtn) nextBtn.style.display = 'none';
-                if (pageInfo) pageInfo.textContent = `${data.logs?.length || 0} logs loaded`;
+                if (pageInfo) pageInfo.textContent = `${allLogs.length} logs loaded`;
 
                 showToast('✓ App logs refreshed');
             } catch (error) {
@@ -850,6 +880,25 @@
             } finally {
                 isLoading = false;
             }
+        }
+
+        // Apply search filter on existing data (without re-fetching)
+        function applySearchFilter() {
+            const searchQuery = document.getElementById('searchInput').value.trim().toLowerCase();
+
+            if (searchQuery) {
+                allLogs = allLogsUnfiltered.filter(log =>
+                    log.message.toLowerCase().includes(searchQuery)
+                );
+            } else {
+                allLogs = allLogsUnfiltered;
+            }
+
+            displayLogs({ logs: allLogs });
+            updateStats({ logs: allLogs });
+
+            const pageInfo = document.querySelector('.page-info');
+            if (pageInfo) pageInfo.textContent = `${allLogs.length} logs loaded`;
         }
 
 
@@ -1069,6 +1118,37 @@
             return div.innerHTML;
         }
 
+        function clearFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('timeRangeSelect').selectedIndex = 0;
+            document.getElementById('pageSizeSelect').selectedIndex = 1;
+            pageSize = 50;
+            currentPage = 1;
+            fetchLogs();
+        }
+
+        // Debounced search handler
+        const debouncedSearch = debounce(() => {
+            if (allLogsUnfiltered.length > 0) {
+                applySearchFilter();
+            } else {
+                fetchLogs(1);
+            }
+        }, 500);
+
+        // Search input event listeners
+        document.getElementById('searchInput').addEventListener('input', debouncedSearch);
+
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                clearTimeout(searchDebounceTimer);
+                if (allLogsUnfiltered.length > 0) {
+                    applySearchFilter();
+                } else {
+                    fetchLogs(1);
+                }
+            }
+        });
 
         document.getElementById('timeRangeSelect').addEventListener('change', () => {
             currentPage = 1;

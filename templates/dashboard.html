@@ -669,6 +669,36 @@
             window.location.href = '/login';
         }
 
+        // Check if user has access to dashboard (ubl-test-team is restricted)
+        async function checkDashboardAccess() {
+            try {
+                const response = await fetch('/api/user/me', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const userData = await response.json();
+                    if (userData.role === 'ubl-test-team') {
+                        // Redirect ubl-test-team to app-logs instead
+                        window.location.href = '/app-logs';
+                        return false;
+                    }
+                } else if (response.status === 401) {
+                    localStorage.removeItem('access_token');
+                    window.location.href = '/login';
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error checking access:', error);
+            }
+            return true;
+        }
+
+        // Check access on page load
+        checkDashboardAccess();
+
 
         function debounce(func, delay) {
             return function (...args) {
