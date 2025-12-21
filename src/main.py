@@ -5,13 +5,14 @@ from fastapi.templating import Jinja2Templates
 from datetime import timedelta
 from typing import Optional
 
-from src.config import AWS_REGION, LOG_GROUP_NAME, ACCESS_TOKEN_EXPIRE_MINUTES, S3_BUCKET_NAME
+from src.config import AWS_REGION, LOG_GROUP_NAME, ACCESS_TOKEN_EXPIRE_MINUTES, S3_BUCKET_NAME, DB_NAME
 from src.auth import (
     Token, User, get_current_user, 
     authenticate_user, create_access_token
 )
 from src.logs import fetch_logs, get_log_streams, fetch_app_logs
 from src.s3 import list_audio_files, get_presigned_url
+from src.database import get_tables, get_table_data
 from src.utils.helper import filter_uuid, extract_uuids_from_logs
 
 app = FastAPI(title="CloudWatch Logs Viewer", version="1.0.0")
@@ -49,6 +50,15 @@ async def audio_files_page(request: Request):
     return templates.TemplateResponse("audio_files.html", {
         "request": request,
         "bucket": S3_BUCKET_NAME,
+        "region": AWS_REGION
+    })
+
+@app.get("/database", response_class=HTMLResponse)
+async def database_page(request: Request):
+    # Just serve the HTML page - authentication is handled by JavaScript
+    return templates.TemplateResponse("database.html", {
+        "request": request,
+        "db_name": DB_NAME,
         "region": AWS_REGION
     })
 
@@ -190,6 +200,38 @@ async def get_audio_url(
     current_user: User = Depends(get_current_user)
 ):
     result = get_presigned_url(file_key=key, download=download)
+    return result
+
+@app.get("/api/db/tables")
+async def get_db_tables(
+    current_user: User = Depends(get_current_user)
+):
+    tables = get_tables()
+    return {"tables": tables, "database": DB_NAME}
+
+@app.get("/api/db/table/{table_name}")
+async def get_db_table_data(
+    table_name: str,
+    page: int = 1,
+    page_size: int = 50,
+    search: Optional[str] = None,
+    order_by: Optional[str] = None,
+    order_dir: str = 'DESC',
+    current_user: User = Depends(get_current_user)
+):
+    page = max(1, page)
+    page_size = max(10, min(page_size, 100))
+    order_dir = 'ASC' if order_dir.upper() == 'ASC' else 'DESC'
+    
+    result = get_table_data(
+        table_name=table_name,
+        page=page,
+        page_size=page_size,
+        search_query=search,
+        order_by=order_by,
+        order_dir=order_dir
+    )
+    
     return result
 
 if __name__ == "__main__":
