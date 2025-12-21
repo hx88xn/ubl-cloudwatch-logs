@@ -196,9 +196,10 @@ async def get_audio_files(
 @app.get("/api/s3/audio-url")
 async def get_audio_url(
     key: str,
+    download: bool = False,
     current_user: User = Depends(get_current_user)
 ):
-    result = get_presigned_url(file_key=key)
+    result = get_presigned_url(file_key=key, download=download)
     return result
 
 @app.get("/api/db/tables")

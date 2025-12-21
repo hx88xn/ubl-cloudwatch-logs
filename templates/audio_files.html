@@ -924,14 +924,23 @@
         async function downloadAudio(key) {
             try {
                 showToast('Preparing download...');
-                const url = await getPresignedUrl(key);
 
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = key.split('/').pop();
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
+                // Get presigned URL with download=true to force Content-Disposition: attachment
+                const response = await fetch(`/api/s3/audio-url?key=${encodeURIComponent(key)}&download=true`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to get download URL');
+                }
+
+                const data = await response.json();
+                const url = data.url;
+
+                // Open the download URL - browser will download due to Content-Disposition header
+                window.location.href = url;
 
                 showToast('Download started!');
             } catch (error) {
