@@ -5,12 +5,13 @@ from fastapi.templating import Jinja2Templates
 from datetime import timedelta
 from typing import Optional
 
-from src.config import AWS_REGION, LOG_GROUP_NAME, ACCESS_TOKEN_EXPIRE_MINUTES
+from src.config import AWS_REGION, LOG_GROUP_NAME, ACCESS_TOKEN_EXPIRE_MINUTES, S3_BUCKET_NAME
 from src.auth import (
     Token, User, get_current_user, 
     authenticate_user, create_access_token
 )
 from src.logs import fetch_logs, get_log_streams, fetch_app_logs
+from src.s3 import list_audio_files, get_presigned_url
 from src.utils.helper import filter_uuid, extract_uuids_from_logs
 
 app = FastAPI(title="CloudWatch Logs Viewer", version="1.0.0")
@@ -39,6 +40,15 @@ async def app_logs_page(request: Request):
     return templates.TemplateResponse("app_logs.html", {
         "request": request,
         "log_group": LOG_GROUP_NAME,
+        "region": AWS_REGION
+    })
+
+@app.get("/audio-files", response_class=HTMLResponse)
+async def audio_files_page(request: Request):
+    # Just serve the HTML page - authentication is handled by JavaScript
+    return templates.TemplateResponse("audio_files.html", {
+        "request": request,
+        "bucket": S3_BUCKET_NAME,
         "region": AWS_REGION
     })
 
@@ -154,6 +164,32 @@ async def get_app_logs(
 @app.get("/api/user/me", response_model=User)
 async def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+@app.get("/api/s3/audio-files")
+async def get_audio_files(
+    page: int = 1,
+    page_size: int = 50,
+    search: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    page = max(1, page)
+    page_size = max(10, min(page_size, 100))
+    
+    result = list_audio_files(
+        page=page,
+        page_size=page_size,
+        search_query=search
+    )
+    
+    return result
+
+@app.get("/api/s3/audio-url")
+async def get_audio_url(
+    key: str,
+    current_user: User = Depends(get_current_user)
+):
+    result = get_presigned_url(file_key=key)
+    return result
 
 if __name__ == "__main__":
     import uvicorn
