@@ -126,13 +126,14 @@ def list_audio_files(
         raise HTTPException(status_code=500, detail=f"Error listing S3 files: {str(e)}")
 
 
-def get_presigned_url(file_key: str, expiration: int = 3600) -> dict:
+def get_presigned_url(file_key: str, expiration: int = 3600, download: bool = False) -> dict:
     """
     Generate a presigned URL for secure file access.
     
     Args:
         file_key: The S3 object key
         expiration: URL expiration time in seconds (default 1 hour)
+        download: If True, forces browser to download instead of playing the file
     
     Returns:
         Dictionary containing the presigned URL
@@ -140,12 +141,19 @@ def get_presigned_url(file_key: str, expiration: int = 3600) -> dict:
     client = get_s3_client()
     
     try:
+        params = {
+            'Bucket': S3_BUCKET_NAME,
+            'Key': file_key
+        }
+        
+        # Add Content-Disposition header to force download
+        if download:
+            filename = file_key.split('/')[-1]
+            params['ResponseContentDisposition'] = f'attachment; filename="{filename}"'
+        
         url = client.generate_presigned_url(
             'get_object',
-            Params={
-                'Bucket': S3_BUCKET_NAME,
-                'Key': file_key
-            },
+            Params=params,
             ExpiresIn=expiration
         )
         
