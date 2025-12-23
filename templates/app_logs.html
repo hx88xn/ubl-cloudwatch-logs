@@ -730,6 +730,7 @@
         let searchDebounceTimer = null;
         const token = localStorage.getItem('access_token');
         let pageSize = 50;
+        let currentAbortController = null;  // For cancelling previous requests
 
 
         if (!token) {
@@ -808,14 +809,21 @@
 
 
         async function fetchLogs(page = 1, showLoadingState = true) {
-            if (isLoading && showLoadingState) return;
+            // Cancel any previous request
+            if (currentAbortController) {
+                currentAbortController.abort();
+            }
+
+            // Create new AbortController for this request
+            currentAbortController = new AbortController();
+            const signal = currentAbortController.signal;
 
             const hours = document.getElementById('timeRangeSelect').value || '1';
             const searchQuery = document.getElementById('searchInput').value.trim().toLowerCase();
 
             // Fetch ALL logs at once to ensure proper UUID grouping (no pagination split)
-            const fetchLimit = 10000;
-            const fetchPageSize = 10000;
+            const fetchLimit = 100000;
+            const fetchPageSize = 100000;
 
             currentPage = 1;
 
@@ -829,7 +837,8 @@
                 const response = await fetch(url, {
                     headers: {
                         'Authorization': `Bearer ${token}`
-                    }
+                    },
+                    signal: signal
                 });
 
                 if (response.status === 401) {
@@ -869,6 +878,11 @@
 
                 showToast('✓ App logs refreshed');
             } catch (error) {
+                // Don't show error for aborted requests
+                if (error.name === 'AbortError') {
+                    console.log('Request cancelled');
+                    return;
+                }
                 console.error('Error fetching app logs:', error);
                 document.getElementById('logsContainer').innerHTML = `
                     <div class="empty-state">

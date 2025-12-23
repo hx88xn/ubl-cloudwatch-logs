@@ -7,8 +7,12 @@ from src.config import (
     AWS_ACCESS_KEY_ID, 
     AWS_SECRET_ACCESS_KEY, 
     AWS_REGION, 
-    LOG_GROUP_NAME,
-    CACHE_TTL_SECONDS
+    LOG_GROUP_NAME
+)
+from src.cache import (
+    get_cached_logs,
+    set_cached_logs,
+    generate_cache_key
 )
 
 FILTER_PATTERNS = [
@@ -43,6 +47,9 @@ APP_LOGS_PATTERNS = [
     'Bill types: '
 ]
 
+# CloudWatch filter pattern for app logs (server-side filtering)
+APP_LOGS_FILTER_PATTERN = '?"Beneficiaries:" ?"Final Response:" ?"Phone contacts:" ?"Bill types:"'
+
 def should_filter_log(message: str) -> bool:
     for pattern in FILTER_PATTERNS:
         if pattern in message:
@@ -75,13 +82,6 @@ def get_cloudwatch_client():
         region_name=AWS_REGION
     )
 
-_logs_cache = {
-    'data': None,
-    'timestamp': None,
-    'hours': None,
-    'search': None
-}
-
 def case_insensitive_search(message: str, search_query: str) -> bool:
     """
     Perform a case-insensitive search on the log message.
@@ -91,18 +91,12 @@ def case_insensitive_search(message: str, search_query: str) -> bool:
         return True
     return search_query.lower() in message.lower()
 
-def fetch_logs(
-    hours: int = 1,
-    limit: int = 500,
-    search_query: Optional[str] = None,
-    page: int = 1,
-    page_size: int = 50
-):
-    global _logs_cache
+def _fetch_from_cloudwatch(hours: int, filter_pattern: Optional[str] = None) -> List[dict]:
+    """
+    Fetch logs from CloudWatch with optional server-side filter pattern.
+    """
     client = get_cloudwatch_client()
     
-    # start_time = current time (logs start displaying from here - newest)
-    # end_time = time range back (logs end here - oldest)
     start_time = datetime.now()
     
     if hours >= 24:
@@ -111,113 +105,126 @@ def fetch_logs(
     else:
         end_time = start_time - timedelta(hours=hours)
     
-    # CloudWatch API requires: startTime < endTime
-    # So we pass end_time (older) as API startTime, start_time (newer) as API endTime
     api_start_time_ms = int(end_time.timestamp() * 1000)
     api_end_time_ms = int(start_time.timestamp() * 1000)
     
-    if hours <= 1:
-        smart_limit = min(limit, 5000)
-        cache_ttl = CACHE_TTL_SECONDS
-    elif hours <= 6:
-        smart_limit = min(limit, 3000)
-        cache_ttl = CACHE_TTL_SECONDS * 2
-    elif hours <= 24:
-        smart_limit = min(limit, 2000)
-        cache_ttl = CACHE_TTL_SECONDS * 3
+    all_events = []
+    next_token = None
+    
+    while True:
+        params = {
+            'logGroupName': LOG_GROUP_NAME,
+            'startTime': api_start_time_ms,
+            'endTime': api_end_time_ms,
+            'limit': 10000
+        }
+        
+        # Use server-side filter if provided
+        if filter_pattern:
+            params['filterPattern'] = filter_pattern
+        
+        if next_token:
+            params['nextToken'] = next_token
+        
+        response = client.filter_log_events(**params)
+        events = response.get('events', [])
+        all_events.extend(events)
+        
+        next_token = response.get('nextToken')
+        if not next_token:
+            break
+    
+    # Sort by timestamp descending (newest first)
+    all_events.sort(key=lambda x: x['timestamp'], reverse=True)
+    
+    return all_events
+
+def _format_events(events: List[dict]) -> List[dict]:
+    """Format events for API response."""
+    formatted = []
+    for event in events:
+        formatted.append({
+            'timestamp': event['timestamp'],
+            'message': event['message'].strip(),
+            'formatted_time': datetime.fromtimestamp(event['timestamp'] / 1000).strftime('%Y-%m-%d %H:%M:%S')
+        })
+    return formatted
+
+def fetch_logs(
+    hours: int = 1,
+    limit: int = 500,
+    search_query: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 50
+):
+    """
+    Fetch dashboard logs with Redis caching.
+    Cache key: logs:dashboard:{hours}:{search_hash}
+    """
+    # Generate cache key
+    cache_key = generate_cache_key("dashboard", hours, search_query)
+    
+    # Try to get from cache first (only if no search query or search is cached)
+    if not search_query:
+        cached_events = get_cached_logs(cache_key)
+        if cached_events is not None:
+            print(f"✅ Cache HIT: {cache_key} ({len(cached_events)} logs)")
+            all_events = cached_events
+        else:
+            print(f"⚡ Cache MISS: {cache_key} - fetching from CloudWatch...")
+            try:
+                all_events = _fetch_from_cloudwatch(hours)
+                
+                # Filter out unwanted log messages
+                all_events = [
+                    event for event in all_events 
+                    if not should_filter_log(event.get('message', ''))
+                ]
+                
+                # Cache the filtered data
+                set_cached_logs(cache_key, all_events, hours)
+                
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Error fetching logs: {str(e)}")
     else:
-        smart_limit = min(limit, 1000)
-        cache_ttl = CACHE_TTL_SECONDS * 5
-    
-    cache_key = f"{hours}:{search_query}"
-    now = datetime.now()
-    
-    # For search queries, we need to fetch without cache to get fresh, unfiltered data
-    # Then apply case-insensitive client-side filtering
-    use_cache = (
-        _logs_cache['data'] is not None and 
-        _logs_cache['timestamp'] is not None and
-        _logs_cache['hours'] == hours and
-        _logs_cache['search'] is None and  # Only use cache if it's unfiltered data
-        (now - _logs_cache['timestamp']).total_seconds() < cache_ttl
-    )
-    
-    if use_cache and not search_query:
-        all_events = _logs_cache['data']
-    else:
-        try:
-            all_events = []
-            next_token = None
-            
-            # Fetch ALL logs in the time range (no CloudWatch filter pattern)
-            # We do client-side filtering for accurate case-insensitive search
-            while True:
-                params = {
-                    'logGroupName': LOG_GROUP_NAME,
-                    'startTime': api_start_time_ms,
-                    'endTime': api_end_time_ms,
-                    'limit': 10000
-                }
+        # For search queries, first try cache without search
+        base_cache_key = generate_cache_key("dashboard", hours, None)
+        cached_events = get_cached_logs(base_cache_key)
+        
+        if cached_events is not None:
+            print(f"✅ Cache HIT (base): {base_cache_key}")
+            all_events = cached_events
+        else:
+            print(f"⚡ Cache MISS: fetching from CloudWatch for search...")
+            try:
+                all_events = _fetch_from_cloudwatch(hours)
                 
-                # Don't use CloudWatch filter - we'll do case-insensitive client-side filtering
+                # Filter out unwanted log messages
+                all_events = [
+                    event for event in all_events 
+                    if not should_filter_log(event.get('message', ''))
+                ]
                 
-                if next_token:
-                    params['nextToken'] = next_token
+                # Cache the base data
+                set_cached_logs(base_cache_key, all_events, hours)
                 
-                response = client.filter_log_events(**params)
-                events = response.get('events', [])
-                all_events.extend(events)
-                
-                next_token = response.get('nextToken')
-                if not next_token:
-                    break
-            
-            # NOW sort by timestamp descending (newest first)
-            all_events.sort(key=lambda x: x['timestamp'], reverse=True)
-            
-            # Apply limit AFTER sorting to keep the newest logs
-            all_events = all_events[:smart_limit]
-            
-            # Filter out unwanted log messages BEFORE caching
-            all_events = [
-                event for event in all_events 
-                if not should_filter_log(event.get('message', ''))
-            ]
-            
-            # Cache the UNFILTERED data for reuse
-            if not search_query:
-                _logs_cache = {
-                    'data': all_events,
-                    'timestamp': now,
-                    'hours': hours,
-                    'search': None
-                }
-            
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error fetching logs: {str(e)}")
-    
-    # Apply case-insensitive search filter (works with lowercase, uppercase, mixed case)
-    if search_query:
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Error fetching logs: {str(e)}")
+        
+        # Apply search filter on cached data
         search_term = search_query.strip()
         all_events = [
             event for event in all_events
             if case_insensitive_search(event.get('message', ''), search_term)
         ]
     
-    
+    # Paginate
     total_events = len(all_events)
     start_idx = (page - 1) * page_size
     end_idx = start_idx + page_size
     
     paginated_events = all_events[start_idx:end_idx]
-    
-    formatted_events = []
-    for event in paginated_events:
-        formatted_events.append({
-            'timestamp': event['timestamp'],
-            'message': event['message'].strip(),
-            'formatted_time': datetime.fromtimestamp(event['timestamp'] / 1000).strftime('%Y-%m-%d %H:%M:%S')
-        })
+    formatted_events = _format_events(paginated_events)
     
     return {
         'logs': formatted_events,
@@ -258,84 +265,38 @@ def fetch_app_logs(
     page: int = 1,
     page_size: int = 50
 ):
-    global _logs_cache
-    client = get_cloudwatch_client()
+    """
+    Fetch app logs with Redis caching and server-side CloudWatch filtering.
+    Uses filterPattern to reduce data transfer from CloudWatch.
+    Cache key: logs:app:{hours}:all
+    """
+    # Generate cache key
+    cache_key = generate_cache_key("app", hours, None)
     
-    # start_time = current time (logs start displaying from here - newest)
-    # end_time = time range back (logs end here - oldest)
-    start_time = datetime.now()
-    
-    if hours >= 24:
-        days_back = hours // 24
-        end_time = start_time.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days_back)
+    # Try to get from cache first
+    cached_events = get_cached_logs(cache_key)
+    if cached_events is not None:
+        print(f"✅ Cache HIT: {cache_key} ({len(cached_events)} logs)")
+        app_events = cached_events
     else:
-        end_time = start_time - timedelta(hours=hours)
-    
-    # CloudWatch API requires: startTime < endTime
-    api_start_time_ms = int(end_time.timestamp() * 1000)
-    api_end_time_ms = int(start_time.timestamp() * 1000)
-
-    if hours <= 1:
-        smart_limit = min(limit, 5000)
-    elif hours <= 6:
-        smart_limit = min(limit, 3000)
-    elif hours <= 24:
-        smart_limit = min(limit, 2000)
-    else:
-        smart_limit = min(limit, 1000)
-    
-    try:
-        all_events = []
-        next_token = None
-        
-        # Fetch ALL logs in the time range first (CloudWatch returns oldest first)
-        while True:
-            params = {
-                'logGroupName': LOG_GROUP_NAME,
-                'startTime': api_start_time_ms,
-                'endTime': api_end_time_ms,
-                'limit': 10000
-            }
+        print(f"⚡ Cache MISS: {cache_key} - fetching from CloudWatch with server-side filter...")
+        try:
+            # Use server-side filtering for app logs - much more efficient!
+            app_events = _fetch_from_cloudwatch(hours, filter_pattern=APP_LOGS_FILTER_PATTERN)
             
-            if next_token:
-                params['nextToken'] = next_token
+            # Cache the app logs data
+            set_cached_logs(cache_key, app_events, hours)
             
-            response = client.filter_log_events(**params)
-            events = response.get('events', [])
-            all_events.extend(events)
-            
-            next_token = response.get('nextToken')
-            if not next_token:
-                break
-        
-        # NOW sort by timestamp descending (newest first)
-        all_events.sort(key=lambda x: x['timestamp'], reverse=True)
-        
-        # Apply limit AFTER sorting to keep the newest logs
-        all_events = all_events[:smart_limit]
-        
-        # Filter to include ONLY app logs
-        app_events = [
-            event for event in all_events 
-            if should_include_app_log(event.get('message', ''))
-        ]
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching app logs: {str(e)}")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error fetching app logs: {str(e)}")
     
+    # Paginate
     total_events = len(app_events)
     start_idx = (page - 1) * page_size
     end_idx = start_idx + page_size
     
     paginated_events = app_events[start_idx:end_idx]
-    
-    formatted_events = []
-    for event in paginated_events:
-        formatted_events.append({
-            'timestamp': event['timestamp'],
-            'message': event['message'].strip(),
-            'formatted_time': datetime.fromtimestamp(event['timestamp'] / 1000).strftime('%Y-%m-%d %H:%M:%S')
-        })
+    formatted_events = _format_events(paginated_events)
     
     return {
         'logs': formatted_events,

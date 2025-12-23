@@ -23,4 +23,16 @@ JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'your-secret-key')
 JWT_ALGORITHM = os.getenv('JWT_ALGORITHM', 'HS256')
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES', '1440'))
 
+# Redis Configuration
+REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
+REDIS_PORT = int(os.getenv('REDIS_PORT', '6379'))
+REDIS_DB = int(os.getenv('REDIS_DB', '0'))
+
+# Cache TTL (seconds) - shorter for recent data, longer for historical
+CACHE_TTL_1H = 30      # 1 hour range: 30 seconds
+CACHE_TTL_6H = 60      # 6 hour range: 1 minute
+CACHE_TTL_24H = 120    # 24 hour range: 2 minutes
+CACHE_TTL_48H = 300    # 48+ hour range: 5 minutes
+
+# Legacy TTL (for backward compatibility)
 CACHE_TTL_SECONDS = 30

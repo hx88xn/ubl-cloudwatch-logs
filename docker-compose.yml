@@ -1,4 +1,16 @@
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: ubl-redis
+    ports:
+      - "6380:6379" # External 6380 -> Internal 6379 to avoid conflict
+    restart: unless-stopped
+    networks:
+      - cloudwatch-network
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
   cloudwatch-logs-viewer:
     build:
       context: .
@@ -11,6 +23,11 @@ services:
     restart: unless-stopped
     networks:
       - cloudwatch-network
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379 # Internal port (container-to-container)
     logging:
       driver: "json-file"
       options:
@@ -20,3 +37,8 @@ services:
 networks:
   cloudwatch-network:
     driver: bridge
+
+volumes:
+  redis_data:
+
+
