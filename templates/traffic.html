@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traffic Analytics - Intent Detection</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e4e4e4;
+            min-height: 100vh;
+        }
+
+        /* Navigation */
+        .navbar {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            font-size: 24px;
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-text {
+            font-size: 20px;
+            font-weight: 700;
+            color: white;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .nav-btn {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            transform: translateY(-2px);
+        }
+
+        .logout-btn {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #ef4444;
+        }
+
+        .logout-btn:hover {
+            background: rgba(239, 68, 68, 0.3);
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 32px;
+        }
+
+        /* Header Section */
+        .header {
+            margin-bottom: 32px;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .metadata {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .metadata-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .metadata-value {
+            color: #667eea;
+            font-weight: 500;
+        }
+
+        /* Time Range Buttons */
+        .time-range-section {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .time-range-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 12px;
+        }
+
+        .time-range-buttons {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .time-btn {
+            padding: 12px 24px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: white;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .time-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            transform: translateY(-2px);
+        }
+
+        .time-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: transparent;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .stat-card.send_money {
+            border-left: 4px solid #10b981;
+        }
+
+        .stat-card.pay_bill {
+            border-left: 4px solid #3b82f6;
+        }
+
+        .stat-card.mobile_topup {
+            border-left: 4px solid #f59e0b;
+        }
+
+        .stat-card.download_statement {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .stat-card.unknown {
+            border-left: 4px solid #6b7280;
+        }
+
+        .stat-card.total {
+            border-left: 4px solid #ec4899;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .stat-card.send_money .stat-value {
+            color: #10b981;
+        }
+
+        .stat-card.pay_bill .stat-value {
+            color: #3b82f6;
+        }
+
+        .stat-card.mobile_topup .stat-value {
+            color: #f59e0b;
+        }
+
+        .stat-card.download_statement .stat-value {
+            color: #8b5cf6;
+        }
+
+        .stat-card.unknown .stat-value {
+            color: #6b7280;
+        }
+
+        .stat-card.total .stat-value {
+            color: #ec4899;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+            text-transform: capitalize;
+        }
+
+        /* Chart Container */
+        .chart-container {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .chart-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: white;
+        }
+
+        .chart-subtitle {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 4px;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+
+        /* Legend */
+        .custom-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            justify-content: center;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: rgba(16, 185, 129, 0.9);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            display: none;
+            animation: slideUp 0.3s ease-out;
+            z-index: 1000;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .toast.show {
+            display: block;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
+            }
+
+            .navbar {
+                padding: 12px 16px;
+            }
+
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .chart-wrapper {
+                height: 300px;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="logo-section">
+            <div class="logo-icon">📈</div>
+            <span class="logo-text">Traffic Analytics</span>
+        </div>
+        <div class="nav-buttons">
+            <a href="/dashboard" class="nav-btn">📊 Dashboard</a>
+            <button class="nav-btn logout-btn" onclick="logout()">🚪 Logout</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header">
+            <h1>📈 Intent Traffic Analytics</h1>
+            <div class="metadata">
+                <div class="metadata-item">
+                    <span>📁 Log Group:</span>
+                    <span class="metadata-value">{{ log_group }}</span>
+                </div>
+                <div class="metadata-item">
+                    <span>🌍 Region:</span>
+                    <span class="metadata-value">{{ region }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="time-range-section">
+            <div class="time-range-label">⏰ Select Time Range</div>
+            <div class="time-range-buttons">
+                <button class="time-btn active" data-hours="1">Last 1 Hour</button>
+                <button class="time-btn" data-hours="6">Last 6 Hours</button>
+                <button class="time-btn" data-hours="24">Last 24 Hours</button>
+                <button class="time-btn" data-hours="48">Last 2 Days</button>
+            </div>
+        </div>
+
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card send_money">
+                <div class="stat-value" id="stat-send_money">-</div>
+                <div class="stat-label">💸 Send Money</div>
+            </div>
+            <div class="stat-card pay_bill">
+                <div class="stat-value" id="stat-pay_bill">-</div>
+                <div class="stat-label">📄 Pay Bill</div>
+            </div>
+            <div class="stat-card mobile_topup">
+                <div class="stat-value" id="stat-mobile_topup">-</div>
+                <div class="stat-label">📱 Mobile Topup</div>
+            </div>
+            <div class="stat-card download_statement">
+                <div class="stat-value" id="stat-download_statement">-</div>
+                <div class="stat-label">📥 Download Statement</div>
+            </div>
+            <div class="stat-card unknown">
+                <div class="stat-value" id="stat-unknown">-</div>
+                <div class="stat-label">❓ Unknown</div>
+            </div>
+            <div class="stat-card total">
+                <div class="stat-value" id="stat-total">-</div>
+                <div class="stat-label">📊 Total Requests</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <div class="chart-header">
+                <div>
+                    <div class="chart-title">📊 Intent Requests Over Time</div>
+                    <div class="chart-subtitle" id="chartSubtitle">Showing data for the last 1 hour</div>
+                </div>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="trafficChart"></canvas>
+            </div>
+            <div class="custom-legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #10b981;"></div>
+                    <span>Send Money</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #3b82f6;"></div>
+                    <span>Pay Bill</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #f59e0b;"></div>
+                    <span>Mobile Topup</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #8b5cf6;"></div>
+                    <span>Download Statement</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #6b7280;"></div>
+                    <span>Unknown</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const token = localStorage.getItem('access_token');
+        let trafficChart = null;
+        let currentHours = 1;
+
+        // Redirect if no token
+        if (!token) {
+            window.location.href = '/login';
+        }
+
+        // Check admin access
+        async function checkAdminAccess() {
+            try {
+                const response = await fetch('/api/user/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const userData = await response.json();
+                    if (userData.role !== 'admin-ubl') {
+                        showToast('Access denied. Admin access required.', 'error');
+                        setTimeout(() => {
+                            window.location.href = '/dashboard';
+                        }, 1500);
+                        return false;
+                    }
+                } else if (response.status === 401) {
+                    localStorage.removeItem('access_token');
+                    window.location.href = '/login';
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error checking access:', error);
+            }
+            return true;
+        }
+
+        // Intent colors
+        const intentColors = {
+            send_money: { bg: 'rgba(16, 185, 129, 0.2)', border: '#10b981' },
+            pay_bill: { bg: 'rgba(59, 130, 246, 0.2)', border: '#3b82f6' },
+            mobile_topup: { bg: 'rgba(245, 158, 11, 0.2)', border: '#f59e0b' },
+            download_statement: { bg: 'rgba(139, 92, 246, 0.2)', border: '#8b5cf6' },
+            unknown: { bg: 'rgba(107, 114, 128, 0.2)', border: '#6b7280' }
+        };
+
+        const intentLabels = {
+            send_money: 'Send Money',
+            pay_bill: 'Pay Bill',
+            mobile_topup: 'Mobile Topup',
+            download_statement: 'Download Statement',
+            unknown: 'Unknown'
+        };
+
+        // AbortController for cancelling previous requests
+        let currentAbortController = null;
+        let isLoading = false;
+
+        // Show loading state
+        function showLoading() {
+            isLoading = true;
+            // Update stat cards to show loading
+            ['send_money', 'pay_bill', 'mobile_topup', 'download_statement', 'unknown', 'total'].forEach(id => {
+                const el = document.getElementById(`stat-${id}`);
+                if (el) el.textContent = '...';
+            });
+            document.getElementById('chartSubtitle').textContent = 'Loading data...';
+        }
+
+        // Fetch traffic data with cancellation support
+        async function fetchTrafficData(hours = 1) {
+            // Cancel any previous request
+            if (currentAbortController) {
+                currentAbortController.abort();
+            }
+
+            // Create new AbortController for this request
+            currentAbortController = new AbortController();
+            const signal = currentAbortController.signal;
+
+            currentHours = hours;
+            showLoading();
+
+            try {
+                const response = await fetch(`/api/traffic?hours=${hours}`, {
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    signal: signal
+                });
+
+                if (response.status === 401) {
+                    localStorage.removeItem('access_token');
+                    window.location.href = '/login';
+                    return;
+                }
+
+                if (response.status === 403) {
+                    showToast('Access denied. Admin access required.', 'error');
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1500);
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                updateStats(data.totals, data.total_events);
+                updateChart(data);
+                updateSubtitle(hours);
+                showToast('✓ Traffic data refreshed (PKT time)');
+
+            } catch (error) {
+                // Don't show error for aborted requests
+                if (error.name === 'AbortError') {
+                    console.log('Request cancelled');
+                    return;
+                }
+                console.error('Error fetching traffic data:', error);
+                showToast('Error fetching traffic data', 'error');
+            } finally {
+                isLoading = false;
+            }
+        }
+
+        // Update stats cards
+        function updateStats(totals, totalEvents) {
+            for (const [intent, count] of Object.entries(totals)) {
+                const el = document.getElementById(`stat-${intent}`);
+                if (el) el.textContent = count.toLocaleString();
+            }
+            document.getElementById('stat-total').textContent = totalEvents.toLocaleString();
+        }
+
+        // Update chart subtitle
+        function updateSubtitle(hours) {
+            const subtitleEl = document.getElementById('chartSubtitle');
+            const rangeText = hours === 1 ? '1 hour' :
+                hours === 6 ? '6 hours' :
+                    hours === 24 ? '24 hours' : '2 days';
+            subtitleEl.textContent = `Showing data for the last ${rangeText}`;
+        }
+
+        // Update chart
+        function updateChart(data) {
+            const ctx = document.getElementById('trafficChart').getContext('2d');
+
+            const datasets = Object.entries(data.datasets).map(([intent, values]) => ({
+                label: intentLabels[intent],
+                data: values,
+                borderColor: intentColors[intent].border,
+                backgroundColor: intentColors[intent].bg,
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                pointBackgroundColor: intentColors[intent].border,
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2
+            }));
+
+            if (trafficChart) {
+                trafficChart.destroy();
+            }
+
+            trafficChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            display: false // Using custom legend
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            padding: 12,
+                            cornerRadius: 8,
+                            displayColors: true,
+                            titleFont: {
+                                size: 14,
+                                weight: 'bold'
+                            },
+                            bodyFont: {
+                                size: 13
+                            },
+                            callbacks: {
+                                title: function (context) {
+                                    return `Time: ${context[0].label}`;
+                                },
+                                label: function (context) {
+                                    return `${context.dataset.label}: ${context.parsed.y} requests`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)'
+                            },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.6)',
+                                maxRotation: 45,
+                                minRotation: 0,
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)'
+                            },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.6)',
+                                stepSize: 1,
+                                font: {
+                                    size: 11
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Number of Requests',
+                                color: 'rgba(255, 255, 255, 0.6)',
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Time range button handlers
+        document.querySelectorAll('.time-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                // Update active button
+                document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+
+                // Fetch data for selected time range
+                const hours = parseInt(this.dataset.hours);
+                fetchTrafficData(hours);
+            });
+        });
+
+        function logout() {
+            localStorage.removeItem('access_token');
+            window.location.href = '/login';
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.background = type === 'error' ?
+                'rgba(239, 68, 68, 0.9)' : 'rgba(16, 185, 129, 0.9)';
+            toast.classList.add('show');
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+
+        // Initialize
+        async function init() {
+            const hasAccess = await checkAdminAccess();
+            if (hasAccess) {
+                fetchTrafficData(1);
+            }
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

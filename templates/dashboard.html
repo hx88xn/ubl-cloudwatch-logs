@@ -630,6 +630,10 @@
                 <button class="btn btn-primary" onclick="window.location.href='/database'">
                     🗄️ Database
                 </button>
+                <button class="btn btn-primary" id="trafficBtn" style="display: none;"
+                    onclick="window.location.href='/traffic'">
+                    📈 Traffic
+                </button>
             </div>
         </div>
 
@@ -690,6 +694,11 @@
                         // Redirect ubl-test-team to app-logs instead
                         window.location.href = '/app-logs';
                         return false;
+                    }
+                    // Show Traffic button for admin-ubl only
+                    if (userData.role === 'admin-ubl') {
+                        const trafficBtn = document.getElementById('trafficBtn');
+                        if (trafficBtn) trafficBtn.style.display = 'inline-flex';
                     }
                 } else if (response.status === 401) {
                     localStorage.removeItem('access_token');

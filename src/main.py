@@ -14,6 +14,7 @@ from src.logs import fetch_logs, get_log_streams, fetch_app_logs
 from src.s3 import list_audio_files, get_presigned_url
 from src.database import get_tables, get_table_data
 from src.utils.helper import filter_uuid, extract_uuids_from_logs
+from src.traffic import get_intent_traffic_data
 
 app = FastAPI(title="CloudWatch Logs Viewer", version="1.0.0")
 templates = Jinja2Templates(directory="templates")
@@ -59,6 +60,15 @@ async def database_page(request: Request):
     return templates.TemplateResponse("database.html", {
         "request": request,
         "db_name": DB_NAME,
+        "region": AWS_REGION
+    })
+
+@app.get("/traffic", response_class=HTMLResponse)
+async def traffic_page(request: Request):
+    # Traffic analytics page - admin-ubl only (enforced by JavaScript)
+    return templates.TemplateResponse("traffic.html", {
+        "request": request,
+        "log_group": LOG_GROUP_NAME,
         "region": AWS_REGION
     })
 
@@ -169,6 +179,22 @@ async def get_app_logs(
         page_size=page_size
     )
     
+    return result
+
+@app.get("/api/traffic")
+async def get_traffic_data(
+    hours: int = 1,
+    current_user: User = Depends(get_current_user)
+):
+    # Restrict to admin-ubl only
+    if current_user.role != 'admin-ubl':
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied. Admin access required."
+        )
+    
+    hours = max(1, min(hours, 48))
+    result = get_intent_traffic_data(hours=hours)
     return result
 
 @app.get("/api/user/me", response_model=User)

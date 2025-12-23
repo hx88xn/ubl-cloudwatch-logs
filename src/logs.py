@@ -274,7 +274,7 @@ def fetch_app_logs(
     # CloudWatch API requires: startTime < endTime
     api_start_time_ms = int(end_time.timestamp() * 1000)
     api_end_time_ms = int(start_time.timestamp() * 1000)
-    
+
     if hours <= 1:
         smart_limit = min(limit, 5000)
     elif hours <= 6:
