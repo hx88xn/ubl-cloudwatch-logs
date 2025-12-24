@@ -1,7 +1,10 @@
 from fastapi import HTTPException
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 import boto3
+
+# Pakistan Standard Time (UTC+5)
+PKT = timezone(timedelta(hours=5))
 from botocore.exceptions import ClientError
 from src.config import (
     AWS_ACCESS_KEY_ID,
@@ -76,13 +79,15 @@ def list_audio_files(
                 key = obj['Key']
                 # Filter for audio files only
                 if key.lower().endswith(('.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac', '.webm')):
+                    # Convert UTC timestamp to PKT
+                    last_modified_pkt = obj['LastModified'].astimezone(PKT)
                     all_files.append({
                         'key': key,
                         'name': key.split('/')[-1],
                         'size': obj['Size'],
                         'size_formatted': format_file_size(obj['Size']),
-                        'last_modified': obj['LastModified'].isoformat(),
-                        'last_modified_formatted': obj['LastModified'].strftime('%Y-%m-%d %H:%M:%S')
+                        'last_modified': last_modified_pkt.isoformat(),
+                        'last_modified_formatted': last_modified_pkt.strftime('%Y-%m-%d %H:%M:%S')
                     })
             
             if response.get('IsTruncated'):
