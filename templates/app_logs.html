@@ -960,29 +960,25 @@
         }
 
         // Apply search filter on existing data (without re-fetching)
+        // Filters by UUID group - if ANY log in a group matches, show the entire group
         function applySearchFilter() {
-            const searchQuery = document.getElementById('searchInput').value.trim().toLowerCase();
-
-            if (searchQuery) {
-                allLogs = allLogsUnfiltered.filter(log =>
-                    log.message.toLowerCase().includes(searchQuery)
-                );
+            // Just re-display with current search - displayLogs handles filtering
+            if (allLogsUnfiltered.length > 0) {
+                displayLogs({ logs: allLogsUnfiltered });
             } else {
-                allLogs = allLogsUnfiltered;
+                fetchLogs(1);
             }
-
-            displayLogs({ logs: allLogs });
-            updateStats({ logs: allLogs });
-
-            const pageInfo = document.querySelector('.page-info');
-            if (pageInfo) pageInfo.textContent = `${allLogs.length} logs loaded`;
         }
 
 
         function displayLogs(data) {
             const container = document.getElementById('logsContainer');
+            const searchQuery = document.getElementById('searchInput').value.trim().toLowerCase();
 
-            if (!data.logs || data.logs.length === 0) {
+            // Use allLogsUnfiltered for grouping to preserve entire UUID groups
+            const logsToGroup = allLogsUnfiltered.length > 0 ? allLogsUnfiltered : (data.logs || []);
+
+            if (!logsToGroup || logsToGroup.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">📭</div>
@@ -992,8 +988,53 @@
                 return;
             }
 
-            const uuidGroups = groupLogsByUUID(data.logs);
-            container.innerHTML = renderUUIDGroups(uuidGroups);
+            // First, group ALL logs by UUID (using unfiltered data)
+            const uuidGroups = groupLogsByUUID(logsToGroup);
+
+            // If there's a search query, filter to show only groups where at least one log matches
+            if (searchQuery) {
+                const filteredGroups = {};
+                const filteredNoUUIDLogs = [];
+
+                // Filter UUID groups - keep entire group if ANY log matches
+                Object.keys(uuidGroups.groups).forEach(uuid => {
+                    const groupLogs = uuidGroups.groups[uuid];
+                    const hasMatch = groupLogs.some(log =>
+                        log.message.toLowerCase().includes(searchQuery)
+                    );
+                    if (hasMatch) {
+                        filteredGroups[uuid] = groupLogs;
+                    }
+                });
+
+                // Filter non-UUID logs individually
+                uuidGroups.noUUIDLogs.forEach(log => {
+                    if (log.message.toLowerCase().includes(searchQuery)) {
+                        filteredNoUUIDLogs.push(log);
+                    }
+                });
+
+                const filteredUuidGroups = { groups: filteredGroups, noUUIDLogs: filteredNoUUIDLogs };
+
+                if (Object.keys(filteredGroups).length === 0 && filteredNoUUIDLogs.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🔍</div>
+                            <div>No logs found matching "${searchQuery}"</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = renderUUIDGroups(filteredUuidGroups);
+
+                // Update displayed count
+                const matchingLogsCount = Object.values(filteredGroups).flat().length + filteredNoUUIDLogs.length;
+                const pageInfo = document.querySelector('.page-info');
+                if (pageInfo) pageInfo.textContent = `${matchingLogsCount} logs in ${Object.keys(filteredGroups).length} groups`;
+            } else {
+                container.innerHTML = renderUUIDGroups(uuidGroups);
+            }
         }
 
         function groupLogsByUUID(logs) {
