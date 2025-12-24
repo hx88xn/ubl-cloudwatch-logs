@@ -574,6 +574,47 @@
             display: block;
         }
 
+        /* Custom Time Range UI */
+        .custom-range-container {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: rgba(102, 126, 234, 0.1);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            border-radius: 10px;
+            margin-top: 12px;
+        }
+
+        .custom-range-container.active {
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .custom-range-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #667eea;
+        }
+
+        .custom-range-input {
+            width: 80px;
+            padding: 8px 12px;
+            text-align: center;
+        }
+
+        .custom-range-unit {
+            padding: 8px 12px;
+            min-width: 100px;
+        }
+
+        .btn-apply-custom {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 16px;
@@ -589,6 +630,16 @@
 
             .header h1 {
                 font-size: 24px;
+            }
+
+            .custom-range-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .custom-range-input,
+            .custom-range-unit {
+                width: 100%;
             }
         }
     </style>
@@ -667,6 +718,7 @@
                         <option value="24">Last 24 hours</option>
                         <option value="48">Last 2 days</option>
                         <option value="168">Last 7 days</option>
+                        <option value="custom">⏱️ Custom...</option>
                     </select>
                 </div>
                 <div class="filter-group">
@@ -679,6 +731,16 @@
                         <option value="500">500 logs</option>
                     </select>
                 </div>
+            </div>
+            <div class="custom-range-container" id="customRangeContainer">
+                <span class="custom-range-label">⏱️ Custom Range:</span>
+                <input type="number" class="custom-range-input" id="customRangeValue" min="1" value="1"
+                    placeholder="Value">
+                <select class="custom-range-unit" id="customRangeUnit">
+                    <option value="hours">Hours</option>
+                    <option value="days">Days</option>
+                </select>
+                <button class="btn btn-apply-custom" onclick="applyCustomRange()">Apply</button>
             </div>
             <div class="action-buttons">
                 <button class="btn btn-primary" onclick="fetchLogs()">
@@ -731,6 +793,7 @@
         const token = localStorage.getItem('access_token');
         let pageSize = 50;
         let currentAbortController = null;  // For cancelling previous requests
+        let customHours = null;  // Track custom time range in hours
 
 
         if (!token) {
@@ -818,7 +881,7 @@
             currentAbortController = new AbortController();
             const signal = currentAbortController.signal;
 
-            const hours = document.getElementById('timeRangeSelect').value || '1';
+            const hours = customHours || document.getElementById('timeRangeSelect').value || '1';
             const searchQuery = document.getElementById('searchInput').value.trim().toLowerCase();
 
             // Fetch ALL logs at once to ensure proper UUID grouping (no pagination split)
@@ -1136,6 +1199,8 @@
             document.getElementById('searchInput').value = '';
             document.getElementById('timeRangeSelect').selectedIndex = 0;
             document.getElementById('pageSizeSelect').selectedIndex = 1;
+            document.getElementById('customRangeContainer').classList.remove('active');
+            customHours = null;
             pageSize = 50;
             currentPage = 1;
             fetchLogs();
@@ -1164,10 +1229,42 @@
             }
         });
 
-        document.getElementById('timeRangeSelect').addEventListener('change', () => {
+        document.getElementById('timeRangeSelect').addEventListener('change', (e) => {
+            const customContainer = document.getElementById('customRangeContainer');
+            if (e.target.value === 'custom') {
+                customContainer.classList.add('active');
+                // Don't fetch yet, wait for user to apply
+            } else {
+                customContainer.classList.remove('active');
+                customHours = null;
+                currentPage = 1;
+                fetchLogs(1);
+            }
+        });
+
+        // Apply custom time range
+        function applyCustomRange() {
+            const value = parseInt(document.getElementById('customRangeValue').value) || 1;
+            const unit = document.getElementById('customRangeUnit').value;
+
+            if (value < 1) {
+                showToast('Please enter a valid number', 'error');
+                return;
+            }
+
+            // Convert to hours
+            customHours = unit === 'days' ? value * 24 : value;
+
+            // Update the display
+            const timeRangeDisplay = document.getElementById('timeRangeDisplay');
+            if (timeRangeDisplay) {
+                timeRangeDisplay.textContent = unit === 'days' ? `${value}d` : `${value}h`;
+            }
+
             currentPage = 1;
             fetchLogs(1);
-        });
+            showToast(`✓ Showing logs for last ${value} ${unit}`);
+        }
 
 
         document.getElementById('pageSizeSelect').addEventListener('change', (e) => {

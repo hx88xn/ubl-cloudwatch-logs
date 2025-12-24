@@ -397,6 +397,77 @@
             .stats-grid {
                 grid-template-columns: repeat(2, 1fr);
             }
+
+            .custom-range-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .custom-range-input,
+            .custom-range-unit {
+                width: 100%;
+            }
+        }
+
+        /* Custom Time Range UI */
+        .custom-range-container {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: rgba(102, 126, 234, 0.1);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            border-radius: 10px;
+            margin-top: 12px;
+        }
+
+        .custom-range-container.active {
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .custom-range-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #667eea;
+        }
+
+        .custom-range-input {
+            width: 80px;
+            padding: 8px 12px;
+            text-align: center;
+            background: #2d3748;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+        }
+
+        .custom-range-unit {
+            padding: 8px 12px;
+            min-width: 100px;
+            background: #2d3748;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+        }
+
+        .btn-apply-custom {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-apply-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
         }
     </style>
 </head>
@@ -435,6 +506,17 @@
                 <button class="time-btn" data-hours="6">Last 6 Hours</button>
                 <button class="time-btn" data-hours="24">Last 24 Hours</button>
                 <button class="time-btn" data-hours="48">Last 2 Days</button>
+                <button class="time-btn" data-hours="custom">⏱️ Custom</button>
+            </div>
+            <div class="custom-range-container" id="customRangeContainer">
+                <span class="custom-range-label">⏱️ Custom Range:</span>
+                <input type="number" class="custom-range-input" id="customRangeValue" min="1" value="1"
+                    placeholder="Value">
+                <select class="custom-range-unit" id="customRangeUnit">
+                    <option value="hours">Hours</option>
+                    <option value="days">Days</option>
+                </select>
+                <button class="btn-apply-custom" onclick="applyCustomRange()">Apply</button>
             </div>
         </div>
 
@@ -757,11 +839,41 @@
                 document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
 
-                // Fetch data for selected time range
-                const hours = parseInt(this.dataset.hours);
-                fetchTrafficData(hours);
+                const hoursValue = this.dataset.hours;
+
+                if (hoursValue === 'custom') {
+                    // Show custom range UI
+                    document.getElementById('customRangeContainer').classList.add('active');
+                } else {
+                    // Hide custom range UI and fetch data
+                    document.getElementById('customRangeContainer').classList.remove('active');
+                    const hours = parseInt(hoursValue);
+                    fetchTrafficData(hours);
+                }
             });
         });
+
+        // Apply custom time range
+        function applyCustomRange() {
+            const value = parseInt(document.getElementById('customRangeValue').value) || 1;
+            const unit = document.getElementById('customRangeUnit').value;
+
+            if (value < 1) {
+                showToast('Please enter a valid number', 'error');
+                return;
+            }
+
+            // Convert to hours
+            const hours = unit === 'days' ? value * 24 : value;
+
+            fetchTrafficData(hours);
+
+            // Update subtitle with custom range
+            const subtitleEl = document.getElementById('chartSubtitle');
+            subtitleEl.textContent = `Showing data for the last ${value} ${unit}`;
+
+            showToast(`✓ Showing traffic for last ${value} ${unit}`);
+        }
 
         function logout() {
             localStorage.removeItem('access_token');
