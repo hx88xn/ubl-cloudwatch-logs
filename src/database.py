@@ -10,21 +10,10 @@ from src.config import (
 
 
 def get_rds_data_client():
-    """Create and return an RDS Data API client."""
     return boto3.client('rds-data', region_name=AWS_REGION)
 
 
 def execute_sql(sql: str, parameters: list = None) -> Dict[str, Any]:
-    """
-    Execute SQL statement using RDS Data API.
-    
-    Args:
-        sql: SQL statement to execute
-        parameters: Optional list of parameters for parameterized queries
-        
-    Returns:
-        Response from the RDS Data API
-    """
     if not RDS_RESOURCE_ARN or not RDS_SECRET_ARN:
         raise HTTPException(
             status_code=500,
@@ -65,15 +54,6 @@ def execute_sql(sql: str, parameters: list = None) -> Dict[str, Any]:
 
 
 def parse_data_api_response(response: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Parse RDS Data API response into a standard format.
-    
-    Args:
-        response: Raw response from RDS Data API
-        
-    Returns:
-        Dictionary with 'columns' and 'rows' keys
-    """
     columns = [col['name'] for col in response.get('columnMetadata', [])]
     rows = []
     
@@ -106,7 +86,6 @@ def parse_data_api_response(response: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def get_tables() -> List[Dict[str, Any]]:
-    """Get list of all tables in the database with row counts."""
     try:
         # Get all tables
         response = execute_sql("SHOW TABLES")
@@ -137,7 +116,6 @@ def get_tables() -> List[Dict[str, Any]]:
 
 
 def get_table_schema(table_name: str) -> List[Dict[str, Any]]:
-    """Get column information for a table."""
     try:
         response = execute_sql(f"DESCRIBE `{table_name}`")
         result = parse_data_api_response(response)
@@ -159,20 +137,6 @@ def get_table_data(
     order_by: Optional[str] = None,
     order_dir: str = 'DESC'
 ) -> Dict[str, Any]:
-    """
-    Fetch data from a table with pagination and optional search.
-    
-    Args:
-        table_name: Name of the table to query
-        page: Current page number (1-indexed)
-        page_size: Number of rows per page
-        search_query: Optional search string
-        order_by: Column to order by
-        order_dir: Order direction (ASC or DESC)
-    
-    Returns:
-        Dictionary containing rows, pagination info, and column names
-    """
     try:
         # Get column names
         schema_response = execute_sql(f"DESCRIBE `{table_name}`")

@@ -37,10 +37,6 @@ def get_cloudwatch_client():
     )
 
 def parse_detected_intent(message: str) -> Optional[str]:
-    """
-    Extract the detected intent from a log message.
-    Returns the intent type if found, None otherwise.
-    """
     match = DETECTED_INTENT_PATTERN.search(message)
     if match:
         intent = match.group(1).lower()
@@ -51,9 +47,6 @@ def parse_detected_intent(message: str) -> Optional[str]:
     return None
 
 def _fetch_intent_logs_from_cloudwatch(hours: int) -> List[dict]:
-    """
-    Fetch intent detection logs from CloudWatch with server-side filtering.
-    """
     client = get_cloudwatch_client()
     
     now_utc = datetime.now(timezone.utc)
@@ -88,25 +81,6 @@ def _fetch_intent_logs_from_cloudwatch(hours: int) -> List[dict]:
     return all_events
 
 def get_intent_traffic_data(hours: int = 1) -> Dict:
-    """
-    Fetch logs and aggregate detected intents by time buckets.
-    Uses Redis caching for efficiency.
-    
-    Returns:
-        {
-            'labels': ['10:00', '10:05', ...],  # Time bucket labels in PKT
-            'datasets': {
-                'send_money': [count1, count2, ...],
-                'pay_bill': [count1, count2, ...],
-                ...
-            },
-            'totals': {
-                'send_money': total_count,
-                ...
-            },
-            'time_range': '1h'
-        }
-    """
     # Generate cache key
     cache_key = generate_cache_key("traffic", hours, None)
     

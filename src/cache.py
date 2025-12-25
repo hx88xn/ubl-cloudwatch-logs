@@ -1,7 +1,3 @@
-"""
-Redis caching module for efficient log fetching.
-Provides connection pooling, graceful fallback, and TTL-based caching.
-"""
 import json
 import hashlib
 from typing import Optional, Any, List, Dict
@@ -21,10 +17,6 @@ _redis_pool = None
 _redis_client = None
 
 def get_redis_client() -> Optional[redis.Redis]:
-    """
-    Get Redis client with connection pooling.
-    Returns None if Redis is unavailable (graceful fallback).
-    """
     global _redis_pool, _redis_client
     
     if _redis_client is not None:
@@ -55,7 +47,6 @@ def get_redis_client() -> Optional[redis.Redis]:
         return None
 
 def get_cache_ttl(hours: int) -> int:
-    """Get appropriate TTL based on time range."""
     if hours <= 1:
         return CACHE_TTL_1H
     elif hours <= 6:
@@ -66,10 +57,6 @@ def get_cache_ttl(hours: int) -> int:
         return CACHE_TTL_48H
 
 def generate_cache_key(prefix: str, hours: int, search_query: Optional[str] = None) -> str:
-    """
-    Generate a unique cache key.
-    Format: logs:{prefix}:{hours}:{search_hash}
-    """
     if search_query:
         search_hash = hashlib.md5(search_query.encode()).hexdigest()[:8]
     else:
@@ -78,10 +65,6 @@ def generate_cache_key(prefix: str, hours: int, search_query: Optional[str] = No
     return f"logs:{prefix}:{hours}:{search_hash}"
 
 def get_cached_logs(cache_key: str) -> Optional[List[Dict]]:
-    """
-    Get logs from Redis cache.
-    Returns None if cache miss or Redis unavailable.
-    """
     client = get_redis_client()
     if client is None:
         return None
@@ -96,10 +79,6 @@ def get_cached_logs(cache_key: str) -> Optional[List[Dict]]:
         return None
 
 def set_cached_logs(cache_key: str, logs: List[Dict], hours: int) -> bool:
-    """
-    Store logs in Redis cache with appropriate TTL.
-    Returns True if successful, False otherwise.
-    """
     client = get_redis_client()
     if client is None:
         return False
@@ -115,10 +94,6 @@ def set_cached_logs(cache_key: str, logs: List[Dict], hours: int) -> bool:
         return False
 
 def invalidate_cache(pattern: str = "logs:*") -> int:
-    """
-    Invalidate cache entries matching pattern.
-    Returns number of keys deleted.
-    """
     client = get_redis_client()
     if client is None:
         return 0
@@ -135,7 +110,6 @@ def invalidate_cache(pattern: str = "logs:*") -> int:
         return 0
 
 def get_cache_stats() -> Dict[str, Any]:
-    """Get cache statistics for debugging."""
     client = get_redis_client()
     if client is None:
         return {"status": "unavailable"}

@@ -83,18 +83,11 @@ def get_cloudwatch_client():
     )
 
 def case_insensitive_search(message: str, search_query: str) -> bool:
-    """
-    Perform a case-insensitive search on the log message.
-    Returns True if the search query is found in the message (any case).
-    """
     if not search_query:
         return True
     return search_query.lower() in message.lower()
 
 def _fetch_from_cloudwatch(hours: int, filter_pattern: Optional[str] = None) -> List[dict]:
-    """
-    Fetch logs from CloudWatch with optional server-side filter pattern.
-    """
     client = get_cloudwatch_client()
     
     start_time = datetime.now()
@@ -140,7 +133,6 @@ def _fetch_from_cloudwatch(hours: int, filter_pattern: Optional[str] = None) -> 
     return all_events
 
 def _format_events(events: List[dict]) -> List[dict]:
-    """Format events for API response."""
     formatted = []
     for event in events:
         formatted.append({
@@ -157,10 +149,6 @@ def fetch_logs(
     page: int = 1,
     page_size: int = 50
 ):
-    """
-    Fetch dashboard logs with Redis caching.
-    Cache key: logs:dashboard:{hours}:{search_hash}
-    """
     # Generate cache key
     cache_key = generate_cache_key("dashboard", hours, search_query)
     
@@ -265,11 +253,6 @@ def fetch_app_logs(
     page: int = 1,
     page_size: int = 50
 ):
-    """
-    Fetch app logs with Redis caching and server-side CloudWatch filtering.
-    Uses filterPattern to reduce data transfer from CloudWatch.
-    Cache key: logs:app:{hours}:all
-    """
     # Generate cache key
     cache_key = generate_cache_key("app", hours, None)
     

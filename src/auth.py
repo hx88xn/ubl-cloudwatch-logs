@@ -18,7 +18,7 @@ class TokenData(BaseModel):
 
 class User(BaseModel):
     username: str
-    role: Optional[str] = "admin"  # "admin" or "stakeholder"
+    role: Optional[str] = "admin-ubl"  # "admin-ubl" or "ubl-test-team"
     disabled: Optional[bool] = None
 
 def hash_password(password: str) -> str:
