@@ -362,25 +362,31 @@ def fetch_app_logs(
     page: int = 1,
     page_size: int = 50
 ):
-    # Generate cache key
-    cache_key = generate_cache_key("app", hours, None)
-    
-    # Try to get from cache first
-    cached_events = get_cached_logs(cache_key)
-    if cached_events is not None:
-        print(f"✅ Cache HIT: {cache_key} ({len(cached_events)} logs)")
-        app_events = cached_events
-    else:
-        print(f"⚡ Cache MISS: {cache_key} - fetching from CloudWatch with server-side filter...")
+    # For 1-hour range, always fetch fresh (no caching)
+    if hours <= 1:
+        print(f"⚡ Fetching fresh 1h app logs from CloudWatch (no cache)...")
         try:
-            # Use server-side filtering for app logs - much more efficient!
             app_events = _fetch_from_cloudwatch(hours, filter_pattern=APP_LOGS_FILTER_PATTERN)
-            
-            # Cache the app logs data
-            set_cached_logs(cache_key, app_events, hours)
-            
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error fetching app logs: {str(e)}")
+    else:
+        # For longer time ranges (>1 hour), use caching
+        cache_key = generate_cache_key("app", hours, None)
+        
+        cached_events = get_cached_logs(cache_key)
+        if cached_events is not None:
+            print(f"✅ Cache HIT: {cache_key} ({len(cached_events)} logs)")
+            app_events = cached_events
+        else:
+            print(f"⚡ Cache MISS: {cache_key} - fetching from CloudWatch with server-side filter...")
+            try:
+                app_events = _fetch_from_cloudwatch(hours, filter_pattern=APP_LOGS_FILTER_PATTERN)
+                
+                # Cache the app logs data
+                set_cached_logs(cache_key, app_events, hours)
+                
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Error fetching app logs: {str(e)}")
     
     # Paginate
     total_events = len(app_events)
