@@ -18,4 +18,4 @@ RUN mkdir -p ./static
 
 EXPOSE 6067
 
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "6067"]
+CMD ["gunicorn", "src.main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:6067", "--timeout", "600"]

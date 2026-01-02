@@ -4,6 +4,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from datetime import timedelta
 from typing import Optional
+from contextlib import asynccontextmanager
+import asyncio
+import threading
 
 from src.config import AWS_REGION, LOG_GROUP_NAME, ACCESS_TOKEN_EXPIRE_MINUTES, S3_BUCKET_NAME, DB_NAME
 from src.auth import (
@@ -16,7 +19,72 @@ from src.database import get_tables, get_table_data
 from src.utils.helper import filter_uuid, extract_uuids_from_logs
 from src.traffic import get_intent_traffic_data
 
-app = FastAPI(title="CloudWatch Logs Viewer", version="1.0.0")
+
+def warmup_cache_sync():
+    """Synchronously warm up cache for common time ranges."""
+    time_ranges = [1, 6, 24, 168]  # 1 hour, 6 hours, 24 hours, 7 days
+    
+    print("🔥 Starting cache warmup...")
+    
+    for hours in time_ranges:
+        try:
+            print(f"  📦 Warming cache for {hours}h dashboard logs...")
+            fetch_logs(hours=hours, limit=10000, page=1, page_size=10000)
+            
+            print(f"  📦 Warming cache for {hours}h app logs...")
+            fetch_app_logs(hours=hours, limit=10000, page=1, page_size=10000)
+            
+        except Exception as e:
+            print(f"  ⚠️ Failed to warm cache for {hours}h: {e}")
+    
+    print("✅ Cache warmup complete!")
+
+
+def periodic_cache_refresh():
+    """Continuously refresh cache every 5 minutes to keep it warm."""
+    import time
+    
+    # Wait 30 seconds before first refresh to let initial warmup complete
+    time.sleep(30)
+    
+    while True:
+        try:
+            print("🔄 Periodic cache refresh starting...")
+            warmup_cache_sync()
+            print("🔄 Periodic cache refresh done. Sleeping for 5 minutes...")
+        except Exception as e:
+            print(f"⚠️ Periodic cache refresh failed: {e}")
+        
+        # Sleep 5 minutes before next refresh
+        time.sleep(300)
+
+
+# Flag to stop background threads on shutdown
+_shutdown_flag = False
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup and shutdown lifecycle events."""
+    global _shutdown_flag
+    _shutdown_flag = False
+    
+    # Startup: warm cache in background thread
+    warmup_thread = threading.Thread(target=warmup_cache_sync, daemon=True)
+    warmup_thread.start()
+    
+    # Start periodic refresh thread
+    refresh_thread = threading.Thread(target=periodic_cache_refresh, daemon=True)
+    refresh_thread.start()
+    
+    yield  # Server runs here
+    
+    # Shutdown
+    _shutdown_flag = True
+    print("👋 Shutting down...")
+
+
+app = FastAPI(title="CloudWatch Logs Viewer", version="1.0.0", lifespan=lifespan)
 templates = Jinja2Templates(directory="templates")
 
 @app.get("/", response_class=HTMLResponse)

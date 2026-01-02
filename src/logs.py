@@ -88,23 +88,44 @@ def case_insensitive_search(message: str, search_query: str) -> bool:
     return search_query.lower() in message.lower()
 
 def _fetch_from_cloudwatch(hours: int, filter_pattern: Optional[str] = None) -> List[dict]:
+    """
+    Fetch logs from CloudWatch with chunked querying for large time ranges.
+    For ranges > 48 hours, fetches in daily chunks to avoid timeouts.
+    """
     client = get_cloudwatch_client()
     
-    start_time = datetime.now()
+    now = datetime.now()
     
+    # Calculate the time range
     if hours >= 24:
         days_back = hours // 24
-        end_time = start_time.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days_back)
+        range_start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days_back)
     else:
-        end_time = start_time - timedelta(hours=hours)
+        range_start = now - timedelta(hours=hours)
     
-    api_start_time_ms = int(end_time.timestamp() * 1000)
-    api_end_time_ms = int(start_time.timestamp() * 1000)
+    range_end = now
+    
+    # For large time ranges (> 48 hours), use chunked fetching
+    # This prevents timeouts by breaking the query into smaller pieces
+    if hours > 48:
+        return _fetch_logs_chunked(client, range_start, range_end, filter_pattern)
+    
+    # For smaller ranges, use single query
+    return _fetch_logs_single(client, range_start, range_end, filter_pattern)
+
+
+def _fetch_logs_single(client, range_start: datetime, range_end: datetime, filter_pattern: Optional[str] = None) -> List[dict]:
+    """Fetch logs in a single query - suitable for smaller time ranges."""
+    api_start_time_ms = int(range_start.timestamp() * 1000)
+    api_end_time_ms = int(range_end.timestamp() * 1000)
     
     all_events = []
     next_token = None
+    max_iterations = 100  # Safety limit to prevent infinite loops
+    iteration = 0
     
-    while True:
+    while iteration < max_iterations:
+        iteration += 1
         params = {
             'logGroupName': LOG_GROUP_NAME,
             'startTime': api_start_time_ms,
@@ -112,7 +133,6 @@ def _fetch_from_cloudwatch(hours: int, filter_pattern: Optional[str] = None) -> 
             'limit': 10000
         }
         
-        # Use server-side filter if provided
         if filter_pattern:
             params['filterPattern'] = filter_pattern
         
@@ -126,6 +146,75 @@ def _fetch_from_cloudwatch(hours: int, filter_pattern: Optional[str] = None) -> 
         next_token = response.get('nextToken')
         if not next_token:
             break
+    
+    if iteration >= max_iterations:
+        print(f"⚠️ Warning: Reached max iterations ({max_iterations}) for log fetch, results may be incomplete")
+    
+    # Sort by timestamp descending (newest first)
+    all_events.sort(key=lambda x: x['timestamp'], reverse=True)
+    
+    return all_events
+
+
+def _fetch_logs_chunked(client, range_start: datetime, range_end: datetime, filter_pattern: Optional[str] = None) -> List[dict]:
+    """
+    Fetch logs in daily chunks - suitable for large time ranges (>48 hours).
+    This prevents CloudWatch API timeouts by breaking the query into smaller pieces.
+    """
+    all_events = []
+    
+    # Calculate number of days to fetch
+    total_hours = (range_end - range_start).total_seconds() / 3600
+    chunk_hours = 24  # Fetch in 24-hour chunks
+    
+    current_end = range_end
+    chunk_count = 0
+    max_chunks = 14  # Safety limit: max 14 days
+    max_iterations_per_chunk = 50  # Limit iterations per chunk
+    
+    print(f"📦 Fetching {total_hours:.1f} hours of logs in {chunk_hours}-hour chunks...")
+    
+    while current_end > range_start and chunk_count < max_chunks:
+        chunk_count += 1
+        chunk_start = max(current_end - timedelta(hours=chunk_hours), range_start)
+        
+        api_start_time_ms = int(chunk_start.timestamp() * 1000)
+        api_end_time_ms = int(current_end.timestamp() * 1000)
+        
+        next_token = None
+        iteration = 0
+        chunk_events = []
+        
+        while iteration < max_iterations_per_chunk:
+            iteration += 1
+            params = {
+                'logGroupName': LOG_GROUP_NAME,
+                'startTime': api_start_time_ms,
+                'endTime': api_end_time_ms,
+                'limit': 10000
+            }
+            
+            if filter_pattern:
+                params['filterPattern'] = filter_pattern
+            
+            if next_token:
+                params['nextToken'] = next_token
+            
+            response = client.filter_log_events(**params)
+            events = response.get('events', [])
+            chunk_events.extend(events)
+            
+            next_token = response.get('nextToken')
+            if not next_token:
+                break
+        
+        print(f"  📄 Chunk {chunk_count}: {chunk_start.strftime('%Y-%m-%d %H:%M')} to {current_end.strftime('%Y-%m-%d %H:%M')} - {len(chunk_events)} events")
+        all_events.extend(chunk_events)
+        
+        # Move to next chunk
+        current_end = chunk_start
+    
+    print(f"✅ Total fetched: {len(all_events)} events from {chunk_count} chunks")
     
     # Sort by timestamp descending (newest first)
     all_events.sort(key=lambda x: x['timestamp'], reverse=True)
