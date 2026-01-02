@@ -151,6 +151,11 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="CloudWatch Logs Viewer", version="1.0.0", lifespan=lifespan)
+
+# Add gzip compression middleware for faster response delivery
+from starlette.middleware.gzip import GZipMiddleware
+app.add_middleware(GZipMiddleware, minimum_size=500)  # Compress responses > 500 bytes
+
 templates = Jinja2Templates(directory="templates")
 
 @app.get("/", response_class=HTMLResponse)
