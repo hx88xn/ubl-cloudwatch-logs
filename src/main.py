@@ -41,22 +41,45 @@ def warmup_cache_sync():
 
 
 def periodic_cache_refresh():
-    """Continuously refresh cache every 5 minutes to keep it warm."""
+    """
+    Smart cache refresh - refreshes each time range based on its own TTL.
+    Refreshes at 80% of TTL to ensure data is always fresh before expiry.
+    """
     import time
+    from src.config import CACHE_TTL_1H, CACHE_TTL_6H, CACHE_TTL_24H, CACHE_TTL_48H
     
-    # Wait 30 seconds before first refresh to let initial warmup complete
+    # Time ranges with their TTLs (refresh at 80% of TTL)
+    time_range_config = [
+        (1, CACHE_TTL_1H * 0.8),      # 1h logs: refresh at 80% of 2min = 1.6min
+        (6, CACHE_TTL_6H * 0.8),      # 6h logs: refresh at 80% of 5min = 4min
+        (24, CACHE_TTL_24H * 0.8),    # 24h logs: refresh at 80% of 10min = 8min
+        (168, CACHE_TTL_48H * 0.8),   # 7d logs: refresh at 80% of 30min = 24min
+    ]
+    
+    # Track last refresh time for each range
+    last_refresh = {hours: 0 for hours, _ in time_range_config}
+    
+    # Wait for initial warmup to complete
     time.sleep(30)
+    print("🔄 Smart cache refresh started - each range refreshes based on its TTL")
     
     while True:
-        try:
-            print("🔄 Periodic cache refresh starting...")
-            warmup_cache_sync()
-            print("🔄 Periodic cache refresh done. Sleeping for 5 minutes...")
-        except Exception as e:
-            print(f"⚠️ Periodic cache refresh failed: {e}")
+        current_time = time.time()
         
-        # Sleep 5 minutes before next refresh
-        time.sleep(300)
+        for hours, refresh_interval in time_range_config:
+            time_since_refresh = current_time - last_refresh[hours]
+            
+            if time_since_refresh >= refresh_interval:
+                try:
+                    print(f"  🔄 Refreshing {hours}h cache (TTL-based, every {int(refresh_interval)}s)...")
+                    fetch_logs(hours=hours, limit=10000, page=1, page_size=10000)
+                    fetch_app_logs(hours=hours, limit=10000, page=1, page_size=10000)
+                    last_refresh[hours] = current_time
+                except Exception as e:
+                    print(f"  ⚠️ Failed to refresh {hours}h cache: {e}")
+        
+        # Check every 30 seconds if any cache needs refresh
+        time.sleep(30)
 
 
 # Flag to stop background threads on shutdown
