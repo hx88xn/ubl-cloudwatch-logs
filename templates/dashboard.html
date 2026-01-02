@@ -1034,14 +1034,73 @@
             // Sort all items by timestamp descending (newest first)
             timelineItems.sort((a, b) => b.timestamp - a.timestamp);
 
-            // Render the timeline
+            // Use progressive rendering for large datasets
+            if (timelineItems.length > 100) {
+                return renderProgressively(timelineItems);
+            }
+
+            // For small datasets, render immediately
+            return renderItemsToHtml(timelineItems, 0, timelineItems.length);
+        }
+
+        // Render items in batches to avoid blocking the UI
+        function renderProgressively(timelineItems) {
+            const container = document.getElementById('logsContainer');
+            const batchSize = 50;
+            let currentIndex = 0;
+
+            // Clear container and show initial count
+            container.innerHTML = '';
+
+            function renderBatch() {
+                const fragment = document.createDocumentFragment();
+                const tempDiv = document.createElement('div');
+
+                const endIndex = Math.min(currentIndex + batchSize, timelineItems.length);
+                tempDiv.innerHTML = renderItemsToHtml(timelineItems, currentIndex, endIndex);
+
+                while (tempDiv.firstChild) {
+                    fragment.appendChild(tempDiv.firstChild);
+                }
+
+                container.appendChild(fragment);
+                currentIndex = endIndex;
+
+                // Update progress
+                const progress = Math.round((currentIndex / timelineItems.length) * 100);
+                const pageInfo = document.querySelector('.page-info');
+                if (pageInfo) {
+                    pageInfo.textContent = `Rendering... ${progress}% (${currentIndex}/${timelineItems.length})`;
+                }
+
+                // Continue rendering if more items remain
+                if (currentIndex < timelineItems.length) {
+                    requestAnimationFrame(renderBatch);
+                } else {
+                    // Done rendering
+                    if (pageInfo) {
+                        pageInfo.textContent = `${timelineItems.length} items loaded`;
+                    }
+                }
+            }
+
+            // Start progressive rendering
+            requestAnimationFrame(renderBatch);
+
+            // Return empty since we're rendering progressively
+            return '';
+        }
+
+        // Helper function to render a range of items to HTML
+        function renderItemsToHtml(timelineItems, startIndex, endIndex) {
             let html = '';
             const uuidPattern = /\[?[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\]?/g;
-            let groupIndex = 0;
 
-            timelineItems.forEach(item => {
+            for (let i = startIndex; i < endIndex; i++) {
+                const item = timelineItems[i];
+
                 if (item.type === 'uuid-group') {
-                    const groupId = `uuid-group-${groupIndex++}`;
+                    const groupId = `uuid-group-${i}`;
                     html += `
                         <div class="uuid-group" id="${groupId}">
                             <div class="uuid-group-header" onclick="toggleUUIDGroup('${groupId}')">
@@ -1055,7 +1114,6 @@
                             </div>
                             <div class="uuid-group-logs">
                                 ${item.logs.map(log => {
-                        // Remove UUID from message since it's shown in header
                         const cleanMessage = log.message.replace(uuidPattern, '').trim();
                         const pktTime = toPakistanTime(log.timestamp);
                         return `
@@ -1076,9 +1134,13 @@
                         </div>
                     `;
                 }
-            });
+            }
 
-            return html || `
+            return html;
+        }
+
+        function renderUUIDGroupsFallback() {
+            return `
                 <div class="empty-state">
                     <div class="empty-state-icon">📭</div>
                     <div>No logs found</div>

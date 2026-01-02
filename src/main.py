@@ -55,7 +55,7 @@ def warmup_cache_sync():
         return
     
     try:
-        time_ranges = [1, 6, 24, 168]  # 1 hour, 6 hours, 24 hours, 7 days
+        time_ranges = [6, 24, 168]  # 6 hours, 24 hours, 7 days (1h always fetches fresh)
         
         print("🔥 Starting cache warmup (this worker acquired the lock)...")
         
@@ -81,14 +81,14 @@ def periodic_cache_refresh():
     Uses distributed lock to prevent multiple workers from refreshing simultaneously.
     """
     import time
-    from src.config import CACHE_TTL_1H, CACHE_TTL_6H, CACHE_TTL_24H, CACHE_TTL_48H
+    from src.config import CACHE_TTL_6H, CACHE_TTL_24H, CACHE_TTL_48H
     
     # Time ranges with their TTLs (refresh at 80% of TTL)
+    # Note: 1h always fetches fresh, so not included here
     time_range_config = [
-        (1, CACHE_TTL_1H * 0.8),      # 1h logs: refresh at 80% of 2min = 1.6min
-        (6, CACHE_TTL_6H * 0.8),      # 6h logs: refresh at 80% of 5min = 4min
-        (24, CACHE_TTL_24H * 0.8),    # 24h logs: refresh at 80% of 10min = 8min
-        (168, CACHE_TTL_48H * 0.8),   # 7d logs: refresh at 80% of 30min = 24min
+        (6, CACHE_TTL_6H * 0.8),      # 6h logs: refresh at 80% of 3h = 2.4h
+        (24, CACHE_TTL_24H * 0.8),    # 24h logs: refresh at 80% of 12h = 9.6h
+        (168, CACHE_TTL_48H * 0.8),   # 7d logs: refresh at 80% of 24h = 19.2h
     ]
     
     # Track last refresh time for each range

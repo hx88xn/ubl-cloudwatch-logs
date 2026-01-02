@@ -28,11 +28,11 @@ REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
 REDIS_PORT = int(os.getenv('REDIS_PORT', '6379'))
 REDIS_DB = int(os.getenv('REDIS_DB', '0'))
 
-# Cache TTL (seconds) - longer TTLs for better performance
-CACHE_TTL_1H = 120     # 1 hour range: 2 minutes
-CACHE_TTL_6H = 300     # 6 hour range: 5 minutes
-CACHE_TTL_24H = 600    # 24 hour range: 10 minutes
-CACHE_TTL_48H = 1800   # 48+ hour range: 30 minutes
+# Cache TTL (seconds) - TTL is half of time range for optimal freshness
+CACHE_TTL_1H = 1800     # 1 hour range: 30 minutes TTL
+CACHE_TTL_6H = 10800    # 6 hour range: 3 hours TTL
+CACHE_TTL_24H = 43200   # 24 hour range: 12 hours TTL
+CACHE_TTL_48H = 86400   # 48+ hour range: 24 hours TTL
 
 # Legacy TTL (for backward compatibility)
-CACHE_TTL_SECONDS = 120
+CACHE_TTL_SECONDS = 1800

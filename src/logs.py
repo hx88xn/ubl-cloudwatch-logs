@@ -238,11 +238,31 @@ def fetch_logs(
     page: int = 1,
     page_size: int = 50
 ):
-    # Generate cache key
-    cache_key = generate_cache_key("dashboard", hours, search_query)
-    
-    # Try to get from cache first (only if no search query or search is cached)
-    if not search_query:
+    # For 1-hour range, always fetch fresh (no caching)
+    if hours <= 1:
+        print(f"⚡ Fetching fresh 1h logs from CloudWatch (no cache)...")
+        try:
+            all_events = _fetch_from_cloudwatch(hours)
+            
+            # Filter out unwanted log messages
+            all_events = [
+                event for event in all_events 
+                if not should_filter_log(event.get('message', ''))
+            ]
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error fetching logs: {str(e)}")
+        
+        # Apply search filter if provided
+        if search_query:
+            search_term = search_query.strip()
+            all_events = [
+                event for event in all_events
+                if case_insensitive_search(event.get('message', ''), search_term)
+            ]
+    # For longer time ranges (>1 hour), use caching
+    elif not search_query:
+        # Generate cache key
+        cache_key = generate_cache_key("dashboard", hours, None)
         cached_events = get_cached_logs(cache_key)
         if cached_events is not None:
             print(f"✅ Cache HIT: {cache_key} ({len(cached_events)} logs)")
@@ -264,7 +284,7 @@ def fetch_logs(
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Error fetching logs: {str(e)}")
     else:
-        # For search queries, first try cache without search
+        # For search queries with hours > 1, first try cache without search
         base_cache_key = generate_cache_key("dashboard", hours, None)
         cached_events = get_cached_logs(base_cache_key)
         
