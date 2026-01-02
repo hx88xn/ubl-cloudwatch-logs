@@ -20,30 +20,65 @@ from src.utils.helper import filter_uuid, extract_uuids_from_logs
 from src.traffic import get_intent_traffic_data
 
 
+def acquire_cache_lock(lock_name: str, timeout: int = 300) -> bool:
+    """Try to acquire a Redis lock. Returns True if lock acquired."""
+    try:
+        from src.cache import get_redis_client
+        client = get_redis_client()
+        if client is None:
+            return True  # No Redis, proceed anyway
+        
+        # Try to set lock with NX (only if not exists) and EX (expire time)
+        result = client.set(f"lock:{lock_name}", "1", nx=True, ex=timeout)
+        return result is True
+    except Exception as e:
+        print(f"⚠️ Lock error: {e}")
+        return True  # On error, proceed anyway
+
+
+def release_cache_lock(lock_name: str):
+    """Release a Redis lock."""
+    try:
+        from src.cache import get_redis_client
+        client = get_redis_client()
+        if client:
+            client.delete(f"lock:{lock_name}")
+    except Exception:
+        pass
+
+
 def warmup_cache_sync():
-    """Synchronously warm up cache for common time ranges."""
-    time_ranges = [1, 6, 24, 168]  # 1 hour, 6 hours, 24 hours, 7 days
+    """Synchronously warm up cache for common time ranges (with distributed lock)."""
+    # Only one worker should do warmup at a time
+    if not acquire_cache_lock("cache_warmup", timeout=600):
+        print("🔒 Another worker is already warming cache, skipping...")
+        return
     
-    print("🔥 Starting cache warmup...")
-    
-    for hours in time_ranges:
-        try:
-            print(f"  📦 Warming cache for {hours}h dashboard logs...")
-            fetch_logs(hours=hours, limit=10000, page=1, page_size=10000)
-            
-            print(f"  📦 Warming cache for {hours}h app logs...")
-            fetch_app_logs(hours=hours, limit=10000, page=1, page_size=10000)
-            
-        except Exception as e:
-            print(f"  ⚠️ Failed to warm cache for {hours}h: {e}")
-    
-    print("✅ Cache warmup complete!")
+    try:
+        time_ranges = [1, 6, 24, 168]  # 1 hour, 6 hours, 24 hours, 7 days
+        
+        print("🔥 Starting cache warmup (this worker acquired the lock)...")
+        
+        for hours in time_ranges:
+            try:
+                print(f"  📦 Warming cache for {hours}h dashboard logs...")
+                fetch_logs(hours=hours, limit=10000, page=1, page_size=10000)
+                
+                print(f"  📦 Warming cache for {hours}h app logs...")
+                fetch_app_logs(hours=hours, limit=10000, page=1, page_size=10000)
+                
+            except Exception as e:
+                print(f"  ⚠️ Failed to warm cache for {hours}h: {e}")
+        
+        print("✅ Cache warmup complete!")
+    finally:
+        release_cache_lock("cache_warmup")
 
 
 def periodic_cache_refresh():
     """
     Smart cache refresh - refreshes each time range based on its own TTL.
-    Refreshes at 80% of TTL to ensure data is always fresh before expiry.
+    Uses distributed lock to prevent multiple workers from refreshing simultaneously.
     """
     import time
     from src.config import CACHE_TTL_1H, CACHE_TTL_6H, CACHE_TTL_24H, CACHE_TTL_48H
@@ -59,8 +94,9 @@ def periodic_cache_refresh():
     # Track last refresh time for each range
     last_refresh = {hours: 0 for hours, _ in time_range_config}
     
-    # Wait for initial warmup to complete
-    time.sleep(30)
+    # Wait for initial warmup to complete + stagger workers
+    import random
+    time.sleep(30 + random.randint(0, 10))  # Stagger to prevent race conditions
     print("🔄 Smart cache refresh started - each range refreshes based on its TTL")
     
     while True:
@@ -70,13 +106,20 @@ def periodic_cache_refresh():
             time_since_refresh = current_time - last_refresh[hours]
             
             if time_since_refresh >= refresh_interval:
-                try:
-                    print(f"  🔄 Refreshing {hours}h cache (TTL-based, every {int(refresh_interval)}s)...")
-                    fetch_logs(hours=hours, limit=10000, page=1, page_size=10000)
-                    fetch_app_logs(hours=hours, limit=10000, page=1, page_size=10000)
-                    last_refresh[hours] = current_time
-                except Exception as e:
-                    print(f"  ⚠️ Failed to refresh {hours}h cache: {e}")
+                # Try to acquire lock for this specific refresh
+                lock_name = f"refresh_{hours}h"
+                if acquire_cache_lock(lock_name, timeout=300):
+                    try:
+                        print(f"  🔄 Refreshing {hours}h cache (TTL-based, every {int(refresh_interval)}s)...")
+                        fetch_logs(hours=hours, limit=10000, page=1, page_size=10000)
+                        fetch_app_logs(hours=hours, limit=10000, page=1, page_size=10000)
+                        last_refresh[hours] = current_time
+                    except Exception as e:
+                        print(f"  ⚠️ Failed to refresh {hours}h cache: {e}")
+                    finally:
+                        release_cache_lock(lock_name)
+                else:
+                    print(f"  🔒 Another worker is refreshing {hours}h cache, skipping...")
         
         # Check every 30 seconds if any cache needs refresh
         time.sleep(30)
