@@ -47,13 +47,23 @@ def parse_detected_intent(message: str) -> Optional[str]:
     return None
 
 def _fetch_intent_logs_from_cloudwatch(hours: int) -> List[dict]:
+    """
+    Fetch intent logs from CloudWatch with chunked querying for large time ranges.
+    For ranges > 48 hours, fetches in daily chunks to avoid timeouts.
+    """
     client = get_cloudwatch_client()
     
     now_utc = datetime.now(timezone.utc)
-    end_time = now_utc - timedelta(hours=hours)
+    range_start = now_utc - timedelta(hours=hours)
+    range_end = now_utc
     
-    api_start_time_ms = int(end_time.timestamp() * 1000)
-    api_end_time_ms = int(now_utc.timestamp() * 1000)
+    # For large time ranges (> 48 hours), use chunked fetching
+    if hours > 48:
+        return _fetch_intent_logs_chunked(client, range_start, range_end)
+    
+    # For smaller ranges, use single query
+    api_start_time_ms = int(range_start.timestamp() * 1000)
+    api_end_time_ms = int(range_end.timestamp() * 1000)
     
     all_events = []
     next_token = None
@@ -77,6 +87,61 @@ def _fetch_intent_logs_from_cloudwatch(hours: int) -> List[dict]:
         next_token = response.get('nextToken')
         if not next_token:
             break
+    
+    return all_events
+
+
+def _fetch_intent_logs_chunked(client, range_start: datetime, range_end: datetime) -> List[dict]:
+    """
+    Fetch intent logs in daily chunks - for large time ranges (>48 hours).
+    """
+    all_events = []
+    
+    chunk_hours = 24  # Fetch in 24-hour chunks
+    current_end = range_end
+    chunk_count = 0
+    max_chunks = 14  # Safety limit: max 14 days
+    
+    total_hours = (range_end - range_start).total_seconds() / 3600
+    print(f"📦 Fetching {total_hours:.1f} hours of intent logs in {chunk_hours}-hour chunks...")
+    
+    while current_end > range_start and chunk_count < max_chunks:
+        chunk_count += 1
+        chunk_start = max(current_end - timedelta(hours=chunk_hours), range_start)
+        
+        api_start_time_ms = int(chunk_start.timestamp() * 1000)
+        api_end_time_ms = int(current_end.timestamp() * 1000)
+        
+        next_token = None
+        chunk_events = []
+        
+        while True:
+            params = {
+                'logGroupName': LOG_GROUP_NAME,
+                'startTime': api_start_time_ms,
+                'endTime': api_end_time_ms,
+                'filterPattern': DETECTED_INTENT_FILTER,
+                'limit': 10000
+            }
+            
+            if next_token:
+                params['nextToken'] = next_token
+            
+            response = client.filter_log_events(**params)
+            events = response.get('events', [])
+            chunk_events.extend(events)
+            
+            next_token = response.get('nextToken')
+            if not next_token:
+                break
+        
+        print(f"  📄 Chunk {chunk_count}: {chunk_start.strftime('%Y-%m-%d %H:%M')} to {current_end.strftime('%Y-%m-%d %H:%M')} - {len(chunk_events)} events")
+        all_events.extend(chunk_events)
+        
+        # Move to next chunk
+        current_end = chunk_start
+    
+    print(f"✅ Total fetched: {len(all_events)} intent events from {chunk_count} chunks")
     
     return all_events
 
