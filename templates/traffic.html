@@ -722,9 +722,15 @@
         // Update chart subtitle
         function updateSubtitle(hours) {
             const subtitleEl = document.getElementById('chartSubtitle');
-            const rangeText = hours === 1 ? '1 hour' :
-                hours === 6 ? '6 hours' :
-                    hours === 24 ? '24 hours' : '2 days';
+            let rangeText;
+            if (hours < 24) {
+                rangeText = hours === 1 ? '1 hour' : `${hours} hours`;
+            } else if (hours % 24 === 0) {
+                const days = hours / 24;
+                rangeText = days === 1 ? '1 day' : `${days} days`;
+            } else {
+                rangeText = `${hours} hours`;
+            }
             subtitleEl.textContent = `Showing data for the last ${rangeText}`;
         }
 
