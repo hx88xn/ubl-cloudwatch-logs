@@ -332,7 +332,7 @@ async def get_traffic_data(
             detail="Access denied. Admin access required."
         )
     
-    hours = max(1, min(hours, 48))
+    hours = max(1, min(hours, 336))  # Allow up to 14 days
     result = get_intent_traffic_data(hours=hours)
     return result
 
