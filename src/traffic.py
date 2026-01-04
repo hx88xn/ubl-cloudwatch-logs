@@ -110,9 +110,15 @@ def get_intent_traffic_data(hours: int = 1) -> Dict:
     elif hours <= 24:
         bucket_minutes = 60
         num_buckets = 24
-    else:  # 48 hours
+    elif hours <= 48:
         bucket_minutes = 120
         num_buckets = 24
+    elif hours <= 168:  # up to 7 days
+        bucket_minutes = 120  # 2 hour buckets
+        num_buckets = hours * 60 // bucket_minutes  # dynamic buckets to cover full range
+    else:  # more than 7 days (up to 14 days)
+        bucket_minutes = 360  # 6 hour buckets
+        num_buckets = hours * 60 // bucket_minutes
     
     now_utc = datetime.now(timezone.utc)
     
