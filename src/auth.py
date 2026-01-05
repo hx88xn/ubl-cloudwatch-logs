@@ -37,6 +37,36 @@ USERS_DB = {
         "role": "ubl-test-team",
         "disabled": False,
     },
+    "Innovation@ubl": {
+        "username": "Innovation@ubl",
+        "hashed_password": hash_password("admin123"),
+        "role": "admin-ubl",
+        "disabled": False,
+    },
+    "Ibtisam@ubl": {
+        "username": "Ibtisam@ubl",
+        "hashed_password": hash_password("admin123"),
+        "role": "admin-ubl",
+        "disabled": False,
+    },
+    "Innovation-ops@ubl": {
+        "username": "Innovation-ops@ubl",
+        "hashed_password": hash_password("admin123"),
+        "role": "admin-ubl",
+        "disabled": False,
+    },
+    "rafay@ubl": {
+        "username": "rafay@ubl",
+        "hashed_password": hash_password("admin123"),
+        "role": "admin-ubl",
+        "disabled": False,
+    },
+    "Innovation1@ubl": {
+        "username": "Innovation1@ubl",
+        "hashed_password": hash_password("admin123"),
+        "role": "admin-ubl",
+        "disabled": False,
+    },
 }
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
