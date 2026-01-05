@@ -37,19 +37,19 @@ USERS_DB = {
         "role": "ubl-test-team",
         "disabled": False,
     },
-    "Innovation@ubl": {
+    "innovation@ubl": {
         "username": "innovation@ubl",
         "hashed_password": hash_password("admin123"),
         "role": "admin-ubl",
         "disabled": False,
     },
-    "Ibtisam@ubl": {
+    "ibtisam@ubl": {
         "username": "ibtisam@ubl",
         "hashed_password": hash_password("admin123"),
         "role": "admin-ubl",
         "disabled": False,
     },
-    "Innovation-ops@ubl": {
+    "innovation-ops@ubl": {
         "username": "innovation-ops@ubl",
         "hashed_password": hash_password("admin123"),
         "role": "admin-ubl",
@@ -61,7 +61,7 @@ USERS_DB = {
         "role": "admin-ubl",
         "disabled": False,
     },
-    "Innovation1@ubl": {
+    "innovation1@ubl": {
         "username": "innovation1@ubl",
         "hashed_password": hash_password("admin123"),
         "role": "admin-ubl",
