@@ -146,6 +146,8 @@ def _fetch_intent_logs_chunked(client, range_start: datetime, range_end: datetim
     return all_events
 
 def get_intent_traffic_data(hours: int = 1) -> Dict:
+    cached_events = None  # Initialize to track cache status
+    
     # For short time ranges (<=6h), always fetch fresh (no caching)
     if hours <= 6:
         print(f"⚡ Fetching fresh {hours}h traffic data from CloudWatch (no cache)...")
