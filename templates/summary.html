@@ -279,7 +279,6 @@
         .summary-scroll {
             max-height: 700px;
             overflow-y: auto;
-            padding: 16px;
         }
 
         .summary-scroll::-webkit-scrollbar {
@@ -295,106 +294,82 @@
             border-radius: 4px;
         }
 
-        .uuid-card {
-            background: rgba(255, 255, 255, 0.05);
-            border: 2px solid rgba(102, 126, 234, 0.4);
-            border-radius: 12px;
-            margin-bottom: 16px;
-            overflow: hidden;
+        /* Summary Table Styles */
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
         }
 
-        .uuid-card-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 14px 18px;
-            background: rgba(102, 126, 234, 0.2);
-            border-left: 4px solid #667eea;
-            cursor: pointer;
-            user-select: none;
+        .summary-table thead {
+            background: #1a1f35;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .summary-table th {
+            background: #1a1f35;
+            padding: 14px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: #667eea;
+            border-bottom: 2px solid rgba(102, 126, 234, 0.4);
+            white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .summary-table tbody tr {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
             transition: background 0.2s ease;
         }
 
-        .uuid-card-header:hover {
-            background: rgba(102, 126, 234, 0.3);
+        .summary-table tbody tr:hover {
+            background: rgba(102, 126, 234, 0.1);
         }
 
-        .uuid-card-header-left {
-            display: flex;
-            align-items: center;
-            gap: 12px;
+        .summary-table td {
+            padding: 14px 16px;
+            vertical-align: top;
         }
 
-        .uuid-card-toggle {
-            font-size: 12px;
-            transition: transform 0.3s ease;
-            color: #667eea;
-        }
-
-        .uuid-card.expanded .uuid-card-toggle {
-            transform: rotate(90deg);
-        }
-
-        .uuid-card-title {
+        .summary-table .col-time {
             font-family: 'JetBrains Mono', monospace;
             font-size: 13px;
-            font-weight: 600;
             color: #fbbf24;
+            white-space: nowrap;
+            min-width: 160px;
         }
 
-        .uuid-card-time {
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .uuid-card-content {
-            display: none;
-            padding: 16px;
-            background: rgba(0, 0, 0, 0.1);
-        }
-
-        .uuid-card.expanded .uuid-card-content {
-            display: block;
-        }
-
-        .summary-field {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            padding: 12px;
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 8px;
-            margin-bottom: 8px;
-        }
-
-        .summary-field-label {
-            font-size: 12px;
-            font-weight: 600;
-            color: #667eea;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .summary-field-value {
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.9);
+        .summary-table .col-time-taken {
             font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            color: #f59e0b;
+            min-width: 100px;
+        }
+
+        .summary-table .col-intent {
+            font-weight: 600;
+            color: #10b981;
+            min-width: 120px;
+        }
+
+        .summary-table .col-transcription {
+            color: rgba(255, 255, 255, 0.9);
+            max-width: 500px;
             word-break: break-word;
         }
 
-        .summary-field-value.intent {
-            color: #10b981;
-            font-weight: 600;
-        }
-
-        .summary-field-value.time {
-            color: #f59e0b;
-            font-weight: 600;
-        }
-
-        .summary-field-value.empty {
+        .summary-table .empty-value {
             color: rgba(255, 255, 255, 0.4);
             font-style: italic;
+        }
+
+        @media (max-width: 1024px) {
+            .summary-table {
+                display: block;
+                overflow-x: auto;
+            }
         }
 
         .loading {
@@ -722,45 +697,42 @@
                 return;
             }
 
-            let html = '';
-            filteredSummaries.forEach((summary, index) => {
+            let html = `
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>⏰ Time</th>
+                            <th>⏱️ Time Taken</th>
+                            <th>🎯 Detected Intent</th>
+                            <th>💬 Original Transcription</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            filteredSummaries.forEach((summary) => {
                 const time = summary.timestamp ? toPakistanTime(summary.timestamp) : 'Unknown';
                 const timeTaken = summary.time_taken || null;
                 const intent = summary.detected_intent || null;
                 const transcription = summary.original_transcription || null;
 
                 html += `
-                    <div class="uuid-card" onclick="toggleCard(this)">
-                        <div class="uuid-card-header">
-                            <div class="uuid-card-header-left">
-                                <span class="uuid-card-toggle">▶</span>
-                                <span class="uuid-card-title">${time}</span>
-                            </div>
-                        </div>
-                        <div class="uuid-card-content">
-                            <div class="summary-field">
-                                <span class="summary-field-label">⏱️ Time Taken</span>
-                                <span class="summary-field-value ${timeTaken ? 'time' : 'empty'}">${timeTaken ? timeTaken + 's' : 'Not available'}</span>
-                            </div>
-                            <div class="summary-field">
-                                <span class="summary-field-label">🎯 Detected Intent</span>
-                                <span class="summary-field-value ${intent ? 'intent' : 'empty'}">${intent || 'Not available'}</span>
-                            </div>
-                            <div class="summary-field">
-                                <span class="summary-field-label">💬 Original Transcription</span>
-                                <span class="summary-field-value ${transcription ? '' : 'empty'}">${transcription || 'Not available'}</span>
-                            </div>
-                        </div>
-                    </div>
+                    <tr>
+                        <td class="col-time">${time}</td>
+                        <td class="col-time-taken">${timeTaken ? timeTaken + 's' : '<span class="empty-value">-</span>'}</td>
+                        <td class="col-intent">${intent || '<span class="empty-value">-</span>'}</td>
+                        <td class="col-transcription">${transcription || '<span class="empty-value">-</span>'}</td>
+                    </tr>
                 `;
             });
 
+            html += `
+                    </tbody>
+                </table>
+            `;
+
             container.innerHTML = html;
             document.getElementById('summaryCount').textContent = `${filteredSummaries.length} sessions`;
-        }
-
-        function toggleCard(card) {
-            card.classList.toggle('expanded');
         }
 
         function clearFilters() {
