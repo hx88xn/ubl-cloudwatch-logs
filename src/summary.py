@@ -18,12 +18,12 @@ from src.cache import (
 
 # Regex patterns to extract target fields
 UUID_PATTERN = re.compile(r'\[([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\]')
-TIME_TAKEN_PATTERN = re.compile(r'Time taken[^:]*:\s*([\d.]+)\s*(?:s|seconds?)?', re.IGNORECASE)
 DETECTED_INTENT_PATTERN = re.compile(r'Detected Intent:\s*(\w+)', re.IGNORECASE)
 ORIGINAL_TRANSCRIPTION_PATTERN = re.compile(r'Original transcription:\s*(.+)', re.IGNORECASE)
+FINAL_RESPONSE_PATTERN = re.compile(r'Final Response:\s*(.+)', re.IGNORECASE)
 
 # CloudWatch filter pattern for summary logs (server-side filtering)
-SUMMARY_LOGS_FILTER = '?"Time taken" ?"Detected Intent" ?"Original transcription"'
+SUMMARY_LOGS_FILTER = '?"Detected Intent" ?"Original transcription" ?"Final Response"'
 
 def get_cloudwatch_client():
     return boto3.client(
@@ -80,23 +80,18 @@ def _fetch_summary_from_cloudwatch(hours: int) -> List[dict]:
     return all_events
 
 def parse_log_message(message: str) -> Dict:
-    """Parse a log message and extract Time taken, Detected Intent, and Original transcription."""
+    """Parse a log message and extract Detected Intent, Original transcription, and Final Response."""
     result = {
         'uuid': None,
-        'time_taken': None,
         'detected_intent': None,
-        'original_transcription': None
+        'original_transcription': None,
+        'final_response': None
     }
     
     # Extract UUID
     uuid_match = UUID_PATTERN.search(message)
     if uuid_match:
         result['uuid'] = uuid_match.group(1)
-    
-    # Extract Time taken
-    time_match = TIME_TAKEN_PATTERN.search(message)
-    if time_match:
-        result['time_taken'] = time_match.group(1)
     
     # Extract Detected Intent
     intent_match = DETECTED_INTENT_PATTERN.search(message)
@@ -107,6 +102,11 @@ def parse_log_message(message: str) -> Dict:
     transcription_match = ORIGINAL_TRANSCRIPTION_PATTERN.search(message)
     if transcription_match:
         result['original_transcription'] = transcription_match.group(1).strip()
+    
+    # Extract Final Response
+    final_response_match = FINAL_RESPONSE_PATTERN.search(message)
+    if final_response_match:
+        result['final_response'] = final_response_match.group(1).strip()
     
     return result
 
@@ -138,9 +138,9 @@ def fetch_summary_logs(hours: int = 1) -> Dict:
     # Group logs by UUID
     uuid_groups = defaultdict(lambda: {
         'logs': [],
-        'time_taken': None,
         'detected_intent': None,
         'original_transcription': None,
+        'final_response': None,
         'timestamp': None,
         'formatted_time': None
     })
@@ -164,12 +164,12 @@ def fetch_summary_logs(hours: int = 1) -> Dict:
                 group['formatted_time'] = formatted_time
             
             # Update fields if found
-            if parsed['time_taken'] and group['time_taken'] is None:
-                group['time_taken'] = parsed['time_taken']
             if parsed['detected_intent'] and group['detected_intent'] is None:
                 group['detected_intent'] = parsed['detected_intent']
             if parsed['original_transcription'] and group['original_transcription'] is None:
                 group['original_transcription'] = parsed['original_transcription']
+            if parsed['final_response'] and group['final_response'] is None:
+                group['final_response'] = parsed['final_response']
             
             group['logs'].append({
                 'timestamp': timestamp,
@@ -189,9 +189,9 @@ def fetch_summary_logs(hours: int = 1) -> Dict:
     for uuid, data in uuid_groups.items():
         summaries.append({
             'uuid': uuid,
-            'time_taken': data['time_taken'],
             'detected_intent': data['detected_intent'],
             'original_transcription': data['original_transcription'],
+            'final_response': data['final_response'],
             'timestamp': data['timestamp'],
             'formatted_time': data['formatted_time'],
             'log_count': len(data['logs']),

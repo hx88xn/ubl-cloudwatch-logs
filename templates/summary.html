@@ -341,13 +341,6 @@
             min-width: 160px;
         }
 
-        .summary-table .col-time-taken {
-            font-family: 'JetBrains Mono', monospace;
-            font-weight: 600;
-            color: #f59e0b;
-            min-width: 100px;
-        }
-
         .summary-table .col-intent {
             font-weight: 600;
             color: #10b981;
@@ -356,7 +349,13 @@
 
         .summary-table .col-transcription {
             color: rgba(255, 255, 255, 0.9);
-            max-width: 500px;
+            max-width: 400px;
+            word-break: break-word;
+        }
+
+        .summary-table .col-final-response {
+            color: #60a5fa;
+            max-width: 400px;
             word-break: break-word;
         }
 
@@ -702,9 +701,9 @@
                     <thead>
                         <tr>
                             <th>⏰ Time</th>
-                            <th>⏱️ Time Taken</th>
                             <th>🎯 Detected Intent</th>
                             <th>💬 Original Transcription</th>
+                            <th>📝 Final Response</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -712,16 +711,16 @@
 
             filteredSummaries.forEach((summary) => {
                 const time = summary.timestamp ? toPakistanTime(summary.timestamp) : 'Unknown';
-                const timeTaken = summary.time_taken || null;
                 const intent = summary.detected_intent || null;
                 const transcription = summary.original_transcription || null;
+                const finalResponse = summary.final_response || null;
 
                 html += `
                     <tr>
                         <td class="col-time">${time}</td>
-                        <td class="col-time-taken">${timeTaken ? timeTaken + 's' : '<span class="empty-value">-</span>'}</td>
                         <td class="col-intent">${intent || '<span class="empty-value">-</span>'}</td>
                         <td class="col-transcription">${transcription || '<span class="empty-value">-</span>'}</td>
+                        <td class="col-final-response">${finalResponse || '<span class="empty-value">-</span>'}</td>
                     </tr>
                 `;
             });
@@ -747,11 +746,12 @@
                 return;
             }
 
-            const csvRows = ['UUID,Time,Time Taken,Detected Intent,Original Transcription'];
+            const csvRows = ['UUID,Time,Detected Intent,Original Transcription,Final Response'];
             filteredSummaries.forEach(s => {
                 const time = s.timestamp ? toPakistanTime(s.timestamp) : '';
                 const transcription = (s.original_transcription || '').replace(/"/g, '""');
-                csvRows.push(`"${s.uuid}","${time}","${s.time_taken || ''}","${s.detected_intent || ''}","${transcription}"`);
+                const finalResponse = (s.final_response || '').replace(/"/g, '""');
+                csvRows.push(`"${s.uuid}","${time}","${s.detected_intent || ''}","${transcription}","${finalResponse}"`);
             });
 
             const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
