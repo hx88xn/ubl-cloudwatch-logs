@@ -18,6 +18,7 @@ from src.s3 import list_audio_files, get_presigned_url
 from src.database import get_tables, get_table_data
 from src.utils.helper import filter_uuid, extract_uuids_from_logs
 from src.traffic import get_intent_traffic_data
+from src.summary import fetch_summary_logs
 
 
 def acquire_cache_lock(lock_name: str, timeout: int = 300) -> bool:
@@ -211,6 +212,15 @@ async def traffic_page(request: Request):
         "region": AWS_REGION
     })
 
+@app.get("/summary", response_class=HTMLResponse)
+async def summary_page(request: Request):
+    # Summary page - shows Time taken, Detected Intent, Original transcription grouped by UUID
+    return templates.TemplateResponse("summary.html", {
+        "request": request,
+        "log_group": LOG_GROUP_NAME,
+        "region": AWS_REGION
+    })
+
 @app.post("/token")
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     user = authenticate_user(form_data.username, form_data.password)
@@ -334,6 +344,15 @@ async def get_traffic_data(
     
     hours = max(1, min(hours, 336))  # Allow up to 14 days
     result = get_intent_traffic_data(hours=hours)
+    return result
+
+@app.get("/api/summary")
+async def get_summary_data(
+    hours: int = 1,
+    current_user: User = Depends(get_current_user)
+):
+    hours = max(1, min(hours, 168))  # Allow up to 7 days
+    result = fetch_summary_logs(hours=hours)
     return result
 
 @app.get("/api/user/me", response_model=User)

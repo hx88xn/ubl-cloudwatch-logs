@@ -146,24 +146,27 @@ def _fetch_intent_logs_chunked(client, range_start: datetime, range_end: datetim
     return all_events
 
 def get_intent_traffic_data(hours: int = 1) -> Dict:
-    # Generate cache key
-    cache_key = generate_cache_key("traffic", hours, None)
-    
-    # Try cache first
-    cached_events = get_cached_logs(cache_key)
-    if cached_events is not None:
-        print(f"✅ Cache HIT: {cache_key} ({len(cached_events)} logs)")
-        all_events = cached_events
-    else:
-        print(f"⚡ Cache MISS: {cache_key} - fetching from CloudWatch...")
+    # For short time ranges (<=6h), always fetch fresh (no caching)
+    if hours <= 6:
+        print(f"⚡ Fetching fresh {hours}h traffic data from CloudWatch (no cache)...")
         try:
             all_events = _fetch_intent_logs_from_cloudwatch(hours)
-            
-            # Cache the intent logs
-            set_cached_logs(cache_key, all_events, hours)
-            
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error fetching traffic data: {str(e)}")
+    else:
+        # For longer time ranges (>6 hours), use caching
+        cache_key = generate_cache_key("traffic", hours, None)
+        cached_events = get_cached_logs(cache_key)
+        if cached_events is not None:
+            print(f"✅ Cache HIT: {cache_key} ({len(cached_events)} logs)")
+            all_events = cached_events
+        else:
+            print(f"⚡ Cache MISS: {cache_key} - fetching from CloudWatch...")
+            try:
+                all_events = _fetch_intent_logs_from_cloudwatch(hours)
+                set_cached_logs(cache_key, all_events, hours)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Error fetching traffic data: {str(e)}")
     
     # Determine bucket size based on time range
     if hours <= 1:

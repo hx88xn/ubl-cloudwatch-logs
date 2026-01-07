@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Summary - CloudWatch</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e4e4e4;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            font-size: 24px;
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-text {
+            font-size: 20px;
+            font-weight: 700;
+            color: white;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .logout-btn {
+            padding: 10px 20px;
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #ef4444;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            background: rgba(239, 68, 68, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .back-btn {
+            padding: 10px 20px;
+            background: rgba(102, 126, 234, 0.2);
+            border: 1px solid rgba(102, 126, 234, 0.4);
+            color: #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .back-btn:hover {
+            background: rgba(102, 126, 234, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 32px;
+        }
+
+        .header {
+            margin-bottom: 32px;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .metadata {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .metadata-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .metadata-value {
+            color: #667eea;
+            font-weight: 500;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .filters {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .filter-group label {
+            font-size: 13px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        input,
+        select {
+            padding: 10px 14px;
+            background: #2d3748;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            background: #374151;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .summary-container {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .summary-header {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 16px 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .summary-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .summary-scroll {
+            max-height: 700px;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .summary-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .summary-scroll::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .summary-scroll::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 4px;
+        }
+
+        .uuid-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(102, 126, 234, 0.4);
+            border-radius: 12px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+
+        .uuid-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px;
+            background: rgba(102, 126, 234, 0.2);
+            border-left: 4px solid #667eea;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s ease;
+        }
+
+        .uuid-card-header:hover {
+            background: rgba(102, 126, 234, 0.3);
+        }
+
+        .uuid-card-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .uuid-card-toggle {
+            font-size: 12px;
+            transition: transform 0.3s ease;
+            color: #667eea;
+        }
+
+        .uuid-card.expanded .uuid-card-toggle {
+            transform: rotate(90deg);
+        }
+
+        .uuid-card-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            font-weight: 600;
+            color: #fbbf24;
+        }
+
+        .uuid-card-time {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .uuid-card-content {
+            display: none;
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .uuid-card.expanded .uuid-card-content {
+            display: block;
+        }
+
+        .summary-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .summary-field-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #667eea;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .summary-field-value {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.9);
+            font-family: 'JetBrains Mono', monospace;
+            word-break: break-word;
+        }
+
+        .summary-field-value.intent {
+            color: #10b981;
+            font-weight: 600;
+        }
+
+        .summary-field-value.time {
+            color: #f59e0b;
+            font-weight: 600;
+        }
+
+        .summary-field-value.empty {
+            color: rgba(255, 255, 255, 0.4);
+            font-style: italic;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: rgba(16, 185, 129, 0.9);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            display: none;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            display: block;
+        }
+
+        .custom-range-container {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: rgba(102, 126, 234, 0.1);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            border-radius: 10px;
+            margin-top: 12px;
+        }
+
+        .custom-range-container.active {
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .custom-range-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #667eea;
+        }
+
+        .custom-range-input {
+            width: 80px;
+            padding: 8px 12px;
+            text-align: center;
+        }
+
+        .custom-range-unit {
+            padding: 8px 12px;
+            min-width: 100px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
+            }
+
+            .filters-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .navbar {
+                padding: 12px 16px;
+            }
+
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .custom-range-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .custom-range-input,
+            .custom-range-unit {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <div class="logo-section">
+            <div class="logo-icon">📋</div>
+            <span class="logo-text">Summary</span>
+        </div>
+        <div class="nav-buttons">
+            <button class="back-btn" onclick="window.location.href='/dashboard'">← Back to Dashboard</button>
+            <button class="logout-btn" onclick="logout()">🚪 Logout</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header">
+            <h1>📋 Call Summary</h1>
+            <div class="metadata">
+                <div class="metadata-item">
+                    <span>📁 Log Group:</span>
+                    <span class="metadata-value">{{ log_group }}</span>
+                </div>
+                <div class="metadata-item">
+                    <span>🌍 Region:</span>
+                    <span class="metadata-value">{{ region }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="totalSessions">0</div>
+                <div class="stat-label">Total Sessions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="timeRangeDisplay">1h</div>
+                <div class="stat-label">Time Range</div>
+            </div>
+        </div>
+
+        <div class="filters">
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label>🔍 Search</label>
+                    <input type="text" id="searchInput" placeholder="Search by UUID or transcription...">
+                </div>
+                <div class="filter-group">
+                    <label>⏰ Time Range</label>
+                    <select id="timeRangeSelect">
+                        <option value="1">Last 1 hour</option>
+                        <option value="6">Last 6 hours</option>
+                        <option value="24">Last 24 hours</option>
+                        <option value="48">Last 2 days</option>
+                        <option value="168">Last 7 days</option>
+                        <option value="custom">⏱️ Custom...</option>
+                    </select>
+                </div>
+            </div>
+            <div class="custom-range-container" id="customRangeContainer">
+                <span class="custom-range-label">⏱️ Custom Range:</span>
+                <input type="number" class="custom-range-input" id="customRangeValue" min="1" value="1"
+                    placeholder="Value">
+                <select class="custom-range-unit" id="customRangeUnit">
+                    <option value="hours">Hours</option>
+                    <option value="days">Days</option>
+                </select>
+                <button class="btn btn-primary" onclick="applyCustomRange()">Apply</button>
+            </div>
+            <div class="action-buttons">
+                <button class="btn btn-primary" onclick="fetchSummary()">🔄 Refresh</button>
+                <button class="btn btn-secondary" onclick="clearFilters()">✖️ Clear Filters</button>
+                <button class="btn btn-secondary" onclick="exportSummary()">💾 Export</button>
+            </div>
+        </div>
+
+        <div class="summary-container">
+            <div class="summary-header">
+                <h2>📝 Session Summaries</h2>
+                <span id="summaryCount">Loading...</span>
+            </div>
+            <div class="summary-scroll" id="summaryContainer">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>Loading summaries...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        let allSummaries = [];
+        let filteredSummaries = [];
+        let customHours = null;
+        const token = localStorage.getItem('access_token');
+
+        if (!token) {
+            window.location.href = '/login';
+        }
+
+        function toPakistanTime(timestamp) {
+            const date = new Date(timestamp);
+            const options = {
+                timeZone: 'Asia/Karachi',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            };
+            const formatter = new Intl.DateTimeFormat('en-CA', options);
+            const parts = formatter.formatToParts(date);
+            const dateParts = {};
+            parts.forEach(part => { dateParts[part.type] = part.value; });
+            return `${dateParts.year}-${dateParts.month}-${dateParts.day} ${dateParts.hour}:${dateParts.minute}:${dateParts.second}`;
+        }
+
+        function showLoading() {
+            document.getElementById('summaryContainer').innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>Loading summaries...</div>
+                </div>
+            `;
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        async function fetchSummary() {
+            const hours = customHours || document.getElementById('timeRangeSelect').value;
+            showLoading();
+
+            try {
+                const response = await fetch(`/api/summary?hours=${hours}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.status === 401) {
+                    localStorage.removeItem('access_token');
+                    window.location.href = '/login';
+                    return;
+                }
+
+                const data = await response.json();
+                allSummaries = data.summaries || [];
+                updateStats(data);
+                applySearchFilter();
+                showToast('✓ Summary refreshed');
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('summaryContainer').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚠️</div>
+                        <div>Error loading summaries: ${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        function updateStats(data) {
+            document.getElementById('totalSessions').textContent = data.total || 0;
+            const hours = customHours || document.getElementById('timeRangeSelect').value;
+            if (customHours) {
+                if (customHours >= 24) {
+                    document.getElementById('timeRangeDisplay').textContent = Math.floor(customHours / 24) + 'd';
+                } else {
+                    document.getElementById('timeRangeDisplay').textContent = customHours + 'h';
+                }
+            } else {
+                const ranges = { '1': '1h', '6': '6h', '24': '24h', '48': '2d', '168': '7d' };
+                document.getElementById('timeRangeDisplay').textContent = ranges[hours] || hours + 'h';
+            }
+        }
+
+        function applySearchFilter() {
+            const query = document.getElementById('searchInput').value.toLowerCase().trim();
+
+            if (query) {
+                filteredSummaries = allSummaries.filter(s =>
+                    (s.uuid && s.uuid.toLowerCase().includes(query)) ||
+                    (s.original_transcription && s.original_transcription.toLowerCase().includes(query)) ||
+                    (s.detected_intent && s.detected_intent.toLowerCase().includes(query))
+                );
+            } else {
+                filteredSummaries = allSummaries;
+            }
+
+            displaySummaries();
+        }
+
+        function displaySummaries() {
+            const container = document.getElementById('summaryContainer');
+
+            if (filteredSummaries.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <div>No summaries found for the selected time range</div>
+                    </div>
+                `;
+                document.getElementById('summaryCount').textContent = '0 sessions';
+                return;
+            }
+
+            let html = '';
+            filteredSummaries.forEach((summary, index) => {
+                const time = summary.timestamp ? toPakistanTime(summary.timestamp) : 'Unknown';
+                const timeTaken = summary.time_taken || null;
+                const intent = summary.detected_intent || null;
+                const transcription = summary.original_transcription || null;
+
+                html += `
+                    <div class="uuid-card" onclick="toggleCard(this)">
+                        <div class="uuid-card-header">
+                            <div class="uuid-card-header-left">
+                                <span class="uuid-card-toggle">▶</span>
+                                <span class="uuid-card-title">${time}</span>
+                            </div>
+                        </div>
+                        <div class="uuid-card-content">
+                            <div class="summary-field">
+                                <span class="summary-field-label">⏱️ Time Taken</span>
+                                <span class="summary-field-value ${timeTaken ? 'time' : 'empty'}">${timeTaken ? timeTaken + 's' : 'Not available'}</span>
+                            </div>
+                            <div class="summary-field">
+                                <span class="summary-field-label">🎯 Detected Intent</span>
+                                <span class="summary-field-value ${intent ? 'intent' : 'empty'}">${intent || 'Not available'}</span>
+                            </div>
+                            <div class="summary-field">
+                                <span class="summary-field-label">💬 Original Transcription</span>
+                                <span class="summary-field-value ${transcription ? '' : 'empty'}">${transcription || 'Not available'}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            document.getElementById('summaryCount').textContent = `${filteredSummaries.length} sessions`;
+        }
+
+        function toggleCard(card) {
+            card.classList.toggle('expanded');
+        }
+
+        function clearFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('timeRangeSelect').value = '1';
+            fetchSummary();
+        }
+
+        function exportSummary() {
+            if (filteredSummaries.length === 0) {
+                showToast('No data to export');
+                return;
+            }
+
+            const csvRows = ['UUID,Time,Time Taken,Detected Intent,Original Transcription'];
+            filteredSummaries.forEach(s => {
+                const time = s.timestamp ? toPakistanTime(s.timestamp) : '';
+                const transcription = (s.original_transcription || '').replace(/"/g, '""');
+                csvRows.push(`"${s.uuid}","${time}","${s.time_taken || ''}","${s.detected_intent || ''}","${transcription}"`);
+            });
+
+            const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `summary_${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('✓ Exported to CSV');
+        }
+
+        function logout() {
+            localStorage.removeItem('access_token');
+            window.location.href = '/login';
+        }
+
+        // Event listeners
+        document.getElementById('timeRangeSelect').addEventListener('change', function () {
+            const value = this.value;
+            const customContainer = document.getElementById('customRangeContainer');
+            if (value === 'custom') {
+                customContainer.classList.add('active');
+            } else {
+                customContainer.classList.remove('active');
+                customHours = null;
+                fetchSummary();
+            }
+        });
+        document.getElementById('searchInput').addEventListener('input', () => {
+            clearTimeout(window.searchTimer);
+            window.searchTimer = setTimeout(applySearchFilter, 300);
+        });
+
+        function applyCustomRange() {
+            const value = parseInt(document.getElementById('customRangeValue').value) || 1;
+            const unit = document.getElementById('customRangeUnit').value;
+            customHours = unit === 'days' ? value * 24 : value;
+            customHours = Math.max(1, Math.min(customHours, 168)); // Limit to 7 days
+            fetchSummary();
+        }
+
+        // Initial load
+        fetchSummary();
+    </script>
+
+</body>
+
+</html>

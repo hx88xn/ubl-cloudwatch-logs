@@ -238,9 +238,9 @@ def fetch_logs(
     page: int = 1,
     page_size: int = 50
 ):
-    # For 1-hour range, always fetch fresh (no caching)
-    if hours <= 1:
-        print(f"⚡ Fetching fresh 1h logs from CloudWatch (no cache)...")
+    # For short time ranges (<=6h), always fetch fresh (no caching)
+    if hours <= 6:
+        print(f"⚡ Fetching fresh {hours}h logs from CloudWatch (no cache)...")
         try:
             all_events = _fetch_from_cloudwatch(hours)
             
@@ -259,7 +259,7 @@ def fetch_logs(
                 event for event in all_events
                 if case_insensitive_search(event.get('message', ''), search_term)
             ]
-    # For longer time ranges (>1 hour), use caching
+    # For longer time ranges (>6 hours), use caching
     elif not search_query:
         # Generate cache key
         cache_key = generate_cache_key("dashboard", hours, None)
@@ -362,15 +362,15 @@ def fetch_app_logs(
     page: int = 1,
     page_size: int = 50
 ):
-    # For 1-hour range, always fetch fresh (no caching)
-    if hours <= 1:
-        print(f"⚡ Fetching fresh 1h app logs from CloudWatch (no cache)...")
+    # For short time ranges (<=6h), always fetch fresh (no caching)
+    if hours <= 6:
+        print(f"⚡ Fetching fresh {hours}h app logs from CloudWatch (no cache)...")
         try:
             app_events = _fetch_from_cloudwatch(hours, filter_pattern=APP_LOGS_FILTER_PATTERN)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error fetching app logs: {str(e)}")
     else:
-        # For longer time ranges (>1 hour), use caching
+        # For longer time ranges (>6 hours), use caching
         cache_key = generate_cache_key("app", hours, None)
         
         cached_events = get_cached_logs(cache_key)
