@@ -31,7 +31,7 @@ REDIS_DB = int(os.getenv('REDIS_DB', '0'))
 # Cache TTL (seconds) - TTL is half of time range for optimal freshness
 CACHE_TTL_1H = 1800     # 1 hour range: 30 minutes TTL
 CACHE_TTL_6H = 1900   # 6 hour range: 3 hours TTL
-CACHE_TTL_24H = 3600    # 24 hour range: 1 hour TTL
+CACHE_TTL_24H = 600     # 24 hour range: 10 minutes TTL
 CACHE_TTL_48H = 7200    # 48+ hour range: 2 hours TTL
 
 # Legacy TTL (for backward compatibility)
