@@ -262,6 +262,12 @@
             text-transform: capitalize;
         }
 
+        .stat-percentage {
+            font-size: 14px;
+            font-weight: 400;
+            opacity: 0.7;
+        }
+
         /* Chart Container */
         .chart-container {
             background: rgba(255, 255, 255, 0.05);
@@ -714,7 +720,10 @@
         function updateStats(totals, totalEvents) {
             for (const [intent, count] of Object.entries(totals)) {
                 const el = document.getElementById(`stat-${intent}`);
-                if (el) el.textContent = count.toLocaleString();
+                if (el) {
+                    const percentage = totalEvents > 0 ? ((count / totalEvents) * 100).toFixed(1) : 0;
+                    el.innerHTML = `${count.toLocaleString()} <span class="stat-percentage">(${percentage}%)</span>`;
+                }
             }
             document.getElementById('stat-total').textContent = totalEvents.toLocaleString();
         }
