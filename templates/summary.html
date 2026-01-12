@@ -687,6 +687,7 @@
                         <option value="24">Last 24 hours</option>
                         <option value="48">Last 2 days</option>
                         <option value="168">Last 7 days</option>
+                        <option value="720">Last 1 Month</option>
                         <option value="custom">⏱️ Custom...</option>
                     </select>
                 </div>
@@ -744,8 +745,15 @@
     <script>
         let allSummaries = [];
         let filteredSummaries = [];
+        let uuidLogsMap = {};  // Key-value pair: uuid -> array of all logs for that uuid
         let customHours = null;
         const token = localStorage.getItem('access_token');
+
+        // Regex patterns for parsing logs (same as backend)
+        const UUID_PATTERN = /\[([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\]/;
+        const DETECTED_INTENT_PATTERN = /Detected Intent:\s*(\w+)/i;
+        const ORIGINAL_TRANSCRIPTION_PATTERN = /Original transcription:\s*(.+)/i;
+        const FINAL_RESPONSE_PATTERN = /Final Response:\s*(.+)/i;
 
         if (!token) {
             window.location.href = '/login';
@@ -774,7 +782,7 @@
             document.getElementById('summaryContainer').innerHTML = `
                 <div class="loading">
                     <div class="spinner"></div>
-                    <div>Loading summaries...</div>
+                    <div>Loading logs and generating summaries...</div>
                 </div>
             `;
         }
@@ -791,7 +799,8 @@
             showLoading();
 
             try {
-                const response = await fetch(`/api/summary?hours=${hours}`, {
+                // Fetch ALL logs from the cached /api/logs endpoint
+                const response = await fetch(`/api/logs?hours=${hours}&limit=100000&page_size=100000`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
@@ -802,19 +811,97 @@
                 }
 
                 const data = await response.json();
-                allSummaries = data.summaries || [];
-                updateStats(data);
+                const allLogs = data.logs || [];
+
+                // Process logs client-side to generate summaries
+                const result = processLogsToSummaries(allLogs);
+                allSummaries = result.summaries;
+                uuidLogsMap = result.uuidLogsMap;
+
+                updateStats({ total: allSummaries.length });
                 applySearchFilter();
-                showToast('✓ Summary refreshed');
+                showToast(`✓ Summary refreshed (${allLogs.length} logs processed)`);
             } catch (error) {
                 console.error('Error:', error);
                 document.getElementById('summaryContainer').innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">⚠️</div>
-                        <div>Error loading summaries: ${error.message}</div>
+                        <div>Error loading logs: ${error.message}</div>
                     </div>
                 `;
             }
+        }
+
+        function processLogsToSummaries(logs) {
+            // Group logs by UUID and extract summary fields
+            const uuidGroups = {};
+            const uuidLogsMap = {};
+
+            logs.forEach(log => {
+                const message = log.message || '';
+                const timestamp = log.timestamp || 0;
+
+                // Extract UUID from message
+                const uuidMatch = message.match(UUID_PATTERN);
+                if (uuidMatch) {
+                    const uuid = uuidMatch[1];
+
+                    // Initialize group if not exists
+                    if (!uuidGroups[uuid]) {
+                        uuidGroups[uuid] = {
+                            uuid: uuid,
+                            detected_intent: null,
+                            original_transcription: null,
+                            final_response: null,
+                            timestamp: null,
+                            log_count: 0
+                        };
+                        uuidLogsMap[uuid] = [];
+                    }
+
+                    // Add log to the UUID's log array
+                    uuidLogsMap[uuid].push(log);
+                    uuidGroups[uuid].log_count++;
+
+                    // Update timestamp (use the most recent)
+                    if (!uuidGroups[uuid].timestamp || timestamp > uuidGroups[uuid].timestamp) {
+                        uuidGroups[uuid].timestamp = timestamp;
+                    }
+
+                    // Extract summary fields (only if not already set)
+                    if (!uuidGroups[uuid].detected_intent) {
+                        const intentMatch = message.match(DETECTED_INTENT_PATTERN);
+                        if (intentMatch) {
+                            uuidGroups[uuid].detected_intent = intentMatch[1];
+                        }
+                    }
+
+                    if (!uuidGroups[uuid].original_transcription) {
+                        const transcriptionMatch = message.match(ORIGINAL_TRANSCRIPTION_PATTERN);
+                        if (transcriptionMatch) {
+                            uuidGroups[uuid].original_transcription = transcriptionMatch[1].trim();
+                        }
+                    }
+
+                    if (!uuidGroups[uuid].final_response) {
+                        const responseMatch = message.match(FINAL_RESPONSE_PATTERN);
+                        if (responseMatch) {
+                            uuidGroups[uuid].final_response = responseMatch[1].trim();
+                        }
+                    }
+                }
+            });
+
+            // Sort logs within each UUID group by timestamp (newest first)
+            Object.keys(uuidLogsMap).forEach(uuid => {
+                uuidLogsMap[uuid].sort((a, b) => b.timestamp - a.timestamp);
+            });
+
+            // Convert to array and sort by timestamp (newest first)
+            const summaries = Object.values(uuidGroups);
+            summaries.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+            return { summaries, uuidLogsMap };
         }
 
         function updateStats(data) {
@@ -827,7 +914,7 @@
                     document.getElementById('timeRangeDisplay').textContent = customHours + 'h';
                 }
             } else {
-                const ranges = { '1': '1h', '6': '6h', '24': '24h', '48': '2d', '168': '7d' };
+                const ranges = { '1': '1h', '6': '6h', '24': '24h', '48': '2d', '168': '7d', '720': '1m' };
                 document.getElementById('timeRangeDisplay').textContent = ranges[hours] || hours + 'h';
             }
         }
@@ -855,7 +942,7 @@
                 container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">📭</div>
-                        <div>No summaries found for the selected time range</div>
+                        <div>No sessions found for the selected time range</div>
                     </div>
                 `;
                 document.getElementById('summaryCount').textContent = '0 sessions';
@@ -883,7 +970,7 @@
                 const logCount = summary.log_count || 0;
 
                 html += `
-                    <tr onclick="showLogModal(${index})" title="Click to view all ${logCount} logs for this session">
+                    <tr onclick="showLogModal('${summary.uuid}')" title="Click to view all ${logCount} logs for this session">
                         <td class="col-time">${time}</td>
                         <td class="col-intent">${intent || '<span class="empty-value">-</span>'}</td>
                         <td class="col-transcription">${transcription || '<span class="empty-value">-</span>'}</td>
@@ -904,6 +991,7 @@
         function clearFilters() {
             document.getElementById('searchInput').value = '';
             document.getElementById('timeRangeSelect').value = '1';
+            customHours = null;
             fetchSummary();
         }
 
@@ -913,12 +1001,12 @@
                 return;
             }
 
-            const csvRows = ['UUID,Time,Detected Intent,Original Transcription,Final Response'];
+            const csvRows = ['UUID,Time,Detected Intent,Original Transcription,Final Response,Log Count'];
             filteredSummaries.forEach(s => {
                 const time = s.timestamp ? toPakistanTime(s.timestamp) : '';
                 const transcription = (s.original_transcription || '').replace(/"/g, '""');
                 const finalResponse = (s.final_response || '').replace(/"/g, '""');
-                csvRows.push(`"${s.uuid}","${time}","${s.detected_intent || ''}","${transcription}","${finalResponse}"`);
+                csvRows.push(`"${s.uuid}","${time}","${s.detected_intent || ''}","${transcription}","${finalResponse}","${s.log_count || 0}"`);
             });
 
             const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
@@ -936,30 +1024,31 @@
             window.location.href = '/login';
         }
 
-        function showLogModal(index) {
-            const summary = filteredSummaries[index];
-            if (!summary) return;
+        function showLogModal(uuid) {
+            if (!uuid) return;
 
             const modal = document.getElementById('logModal');
             const modalUuid = document.getElementById('modalUuid');
             const modalLogCount = document.getElementById('modalLogCount');
             const modalBody = document.getElementById('modalBody');
 
-            modalUuid.textContent = summary.uuid || 'Unknown UUID';
-            modalLogCount.textContent = `${summary.log_count || 0} logs`;
+            modalUuid.textContent = uuid;
 
-            const logs = summary.logs || [];
+            // Get logs directly from the uuidLogsMap (no API call needed)
+            const logs = uuidLogsMap[uuid] || [];
+            modalLogCount.textContent = `${logs.length} logs`;
+
             if (logs.length === 0) {
                 modalBody.innerHTML = `
                     <div class="empty-state" style="padding: 40px 20px;">
                         <div class="empty-state-icon">📭</div>
-                        <div>No detailed logs available for this session</div>
+                        <div>No logs found for this UUID</div>
                     </div>
                 `;
             } else {
                 let logsHtml = '';
                 logs.forEach(log => {
-                    const logTime = log.timestamp ? toPakistanTime(log.timestamp) : log.formatted_time || 'Unknown';
+                    const logTime = log.timestamp ? toPakistanTime(log.timestamp) : 'Unknown';
                     const message = log.message || '';
                     logsHtml += `
                         <div class="log-entry">
@@ -1021,7 +1110,7 @@
             const value = parseInt(document.getElementById('customRangeValue').value) || 1;
             const unit = document.getElementById('customRangeUnit').value;
             customHours = unit === 'days' ? value * 24 : value;
-            customHours = Math.max(1, Math.min(customHours, 168)); // Limit to 7 days
+            customHours = Math.max(1, Math.min(customHours, 720)); // Limit to 1 month
             fetchSummary();
         }
 

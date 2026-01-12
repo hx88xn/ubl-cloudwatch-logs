@@ -186,8 +186,11 @@ def get_intent_traffic_data(hours: int = 1) -> Dict:
     elif hours <= 168:  # up to 7 days
         bucket_minutes = 120  # 2 hour buckets
         num_buckets = hours * 60 // bucket_minutes  # dynamic buckets to cover full range
-    else:  # more than 7 days (up to 14 days)
+    elif hours <= 336:  # up to 14 days
         bucket_minutes = 360  # 6 hour buckets
+        num_buckets = hours * 60 // bucket_minutes
+    else:  # 1 month (720 hours = 30 days)
+        bucket_minutes = 720  # 12 hour buckets
         num_buckets = hours * 60 // bucket_minutes
     
     now_utc = datetime.now(timezone.utc)
@@ -240,8 +243,14 @@ def get_intent_traffic_data(hours: int = 1) -> Dict:
         time_range_display = '6h'
     elif hours <= 24:
         time_range_display = '24h'
-    else:
+    elif hours <= 48:
         time_range_display = '2d'
+    elif hours <= 168:
+        time_range_display = '7d'
+    elif hours <= 336:
+        time_range_display = '14d'
+    else:
+        time_range_display = '1m'
     
     return {
         'labels': time_buckets,

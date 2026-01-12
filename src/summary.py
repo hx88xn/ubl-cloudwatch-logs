@@ -34,7 +34,7 @@ def get_cloudwatch_client():
     )
 
 def _fetch_summary_from_cloudwatch(hours: int) -> List[dict]:
-    """Fetch summary logs from CloudWatch."""
+    """Fetch summary logs from CloudWatch with chunked querying for large time ranges."""
     client = get_cloudwatch_client()
     
     now = datetime.now()
@@ -45,6 +45,10 @@ def _fetch_summary_from_cloudwatch(hours: int) -> List[dict]:
         range_start = now - timedelta(hours=hours)
     
     range_end = now
+    
+    # For large time ranges (> 48 hours), use chunked fetching
+    if hours > 48:
+        return _fetch_summary_chunked(client, range_start, range_end, hours)
     
     api_start_time_ms = int(range_start.timestamp() * 1000)
     api_end_time_ms = int(range_end.timestamp() * 1000)
@@ -78,6 +82,64 @@ def _fetch_summary_from_cloudwatch(hours: int) -> List[dict]:
     # Sort by timestamp descending
     all_events.sort(key=lambda x: x['timestamp'], reverse=True)
     return all_events
+
+
+def _fetch_summary_chunked(client, range_start: datetime, range_end: datetime, hours: int) -> List[dict]:
+    """Fetch summary logs in daily chunks - for large time ranges (> 48 hours)."""
+    all_events = []
+    
+    chunk_hours = 24  # Fetch in 24-hour chunks
+    current_end = range_end
+    chunk_count = 0
+    max_chunks = 31  # Safety limit: max 31 days for 1 month
+    
+    print(f"📦 Fetching {hours} hours of summary logs in {chunk_hours}-hour chunks...")
+    
+    while current_end > range_start and chunk_count < max_chunks:
+        chunk_count += 1
+        chunk_start = max(current_end - timedelta(hours=chunk_hours), range_start)
+        
+        api_start_time_ms = int(chunk_start.timestamp() * 1000)
+        api_end_time_ms = int(current_end.timestamp() * 1000)
+        
+        next_token = None
+        chunk_events = []
+        max_iterations = 50
+        iteration = 0
+        
+        while iteration < max_iterations:
+            iteration += 1
+            params = {
+                'logGroupName': LOG_GROUP_NAME,
+                'startTime': api_start_time_ms,
+                'endTime': api_end_time_ms,
+                'filterPattern': SUMMARY_LOGS_FILTER,
+                'limit': 10000
+            }
+            
+            if next_token:
+                params['nextToken'] = next_token
+            
+            response = client.filter_log_events(**params)
+            events = response.get('events', [])
+            chunk_events.extend(events)
+            
+            next_token = response.get('nextToken')
+            if not next_token:
+                break
+        
+        print(f"  📄 Chunk {chunk_count}: {chunk_start.strftime('%Y-%m-%d %H:%M')} to {current_end.strftime('%Y-%m-%d %H:%M')} - {len(chunk_events)} events")
+        all_events.extend(chunk_events)
+        
+        # Move to next chunk
+        current_end = chunk_start
+    
+    print(f"✅ Total fetched: {len(all_events)} summary events from {chunk_count} chunks")
+    
+    # Sort by timestamp descending
+    all_events.sort(key=lambda x: x['timestamp'], reverse=True)
+    return all_events
+
 
 def parse_log_message(message: str) -> Dict:
     """Parse a log message and extract Detected Intent, Original transcription, and Final Response."""

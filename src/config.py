@@ -33,6 +33,7 @@ CACHE_TTL_1H = 1800     # 1 hour range: 30 minutes TTL
 CACHE_TTL_6H = 1900   # 6 hour range: 3 hours TTL
 CACHE_TTL_24H = 3600    # 24 hour range: 1 hour TTL
 CACHE_TTL_48H = 7200    # 48+ hour range: 2 hours TTL
+CACHE_TTL_1MONTH = 86400  # 1 month range: 24 hours TTL (auto-expire and renew)
 
 # Legacy TTL (for backward compatibility)
 CACHE_TTL_SECONDS = 1800

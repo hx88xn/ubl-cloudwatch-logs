@@ -9,7 +9,8 @@ from src.config import (
     CACHE_TTL_1H,
     CACHE_TTL_6H,
     CACHE_TTL_24H,
-    CACHE_TTL_48H
+    CACHE_TTL_48H,
+    CACHE_TTL_1MONTH
 )
 
 # Global Redis connection pool
@@ -53,8 +54,10 @@ def get_cache_ttl(hours: int) -> int:
         return CACHE_TTL_6H
     elif hours <= 24:
         return CACHE_TTL_24H
-    else:
+    elif hours <= 168:  # Up to 7 days
         return CACHE_TTL_48H
+    else:  # 1 month (720 hours) or larger
+        return CACHE_TTL_1MONTH
 
 def generate_cache_key(prefix: str, hours: int, search_query: Optional[str] = None) -> str:
     if search_query:

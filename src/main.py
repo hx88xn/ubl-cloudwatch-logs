@@ -82,7 +82,7 @@ def periodic_cache_refresh():
     Uses distributed lock to prevent multiple workers from refreshing simultaneously.
     """
     import time
-    from src.config import CACHE_TTL_6H, CACHE_TTL_24H, CACHE_TTL_48H
+    from src.config import CACHE_TTL_6H, CACHE_TTL_24H, CACHE_TTL_48H, CACHE_TTL_1MONTH
     
     # Time ranges with their TTLs (refresh at 80% of TTL)
     # Note: 1h always fetches fresh, so not included here
@@ -90,6 +90,7 @@ def periodic_cache_refresh():
         (6, CACHE_TTL_6H * 0.8),      # 6h logs: refresh at 80% of 3h = 2.4h
         (24, CACHE_TTL_24H * 0.8),    # 24h logs: refresh at 80% of 12h = 9.6h
         (168, CACHE_TTL_48H * 0.8),   # 7d logs: refresh at 80% of 24h = 19.2h
+        (720, CACHE_TTL_1MONTH * 0.8), # 1 month logs: refresh at 80% of 24h = 19.2h
     ]
     
     # Track last refresh time for each range
@@ -250,7 +251,7 @@ async def get_logs(
     uuid: Optional[str] = None,
     current_user: User = Depends(get_current_user)
 ):
-    hours = max(1, min(hours, 168))
+    hours = max(1, min(hours, 720))  # Allow up to 1 month (30 days)
     limit = max(100, min(limit, 50000))
     page = max(1, page)
     page_size = max(10, min(page_size, 50000))  # Allow large page size for UUID grouping
@@ -294,7 +295,7 @@ async def get_uuids(
     limit: int = 10000,
     current_user: User = Depends(get_current_user)
 ):
-    hours = max(1, min(hours, 168))
+    hours = max(1, min(hours, 720))  # Allow up to 1 month (30 days)
     limit = max(100, min(limit, 50000))
     
     result = fetch_logs(
@@ -316,7 +317,7 @@ async def get_app_logs(
     page_size: int = 10000,
     current_user: User = Depends(get_current_user)
 ):
-    hours = max(1, min(hours, 168))
+    hours = max(1, min(hours, 720))  # Allow up to 1 month (30 days)
     limit = max(100, min(limit, 50000))
     page = max(1, page)
     page_size = max(10, min(page_size, 50000))  # Allow large page size for UUID grouping
@@ -351,7 +352,7 @@ async def get_summary_data(
     hours: int = 1,
     current_user: User = Depends(get_current_user)
 ):
-    hours = max(1, min(hours, 168))  # Allow up to 7 days
+    hours = max(1, min(hours, 720))  # Allow up to 1 month (30 days)
     result = fetch_summary_logs(hours=hours)
     return result
 
