@@ -422,6 +422,155 @@
             display: block;
         }
 
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: #1a1f35;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 900px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #667eea;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal-uuid {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: #fbbf24;
+            background: rgba(251, 191, 36, 0.1);
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+
+        .modal-close {
+            width: 36px;
+            height: 36px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: rgba(255, 255, 255, 0.7);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.2s ease;
+        }
+
+        .modal-close:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.4);
+            color: #ef4444;
+        }
+
+        .modal-body {
+            padding: 20px 24px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-body::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .modal-body::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .modal-body::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 4px;
+        }
+
+        .log-entry {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .log-entry:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(102, 126, 234, 0.3);
+        }
+
+        .log-entry:last-child {
+            margin-bottom: 0;
+        }
+
+        .log-timestamp {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: #fbbf24;
+            margin-bottom: 8px;
+        }
+
+        .log-message {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.85);
+            line-height: 1.6;
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+
+        .log-count-badge {
+            font-size: 12px;
+            background: rgba(102, 126, 234, 0.2);
+            color: #667eea;
+            padding: 4px 10px;
+            border-radius: 12px;
+            margin-left: 10px;
+        }
+
+        .summary-table tbody tr {
+            cursor: pointer;
+        }
+
+        .summary-table tbody tr:hover {
+            background: rgba(102, 126, 234, 0.15);
+        }
+
         .custom-range-container {
             display: none;
             align-items: center;
@@ -575,6 +724,23 @@
 
     <div class="toast" id="toast"></div>
 
+    <!-- Logs Modal -->
+    <div class="modal-overlay" id="logModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>
+                    📋 Session Logs
+                    <span class="modal-uuid" id="modalUuid"></span>
+                    <span class="log-count-badge" id="modalLogCount"></span>
+                </h3>
+                <button class="modal-close" onclick="closeLogModal()">✕</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Log entries will be inserted here -->
+            </div>
+        </div>
+    </div>
+
     <script>
         let allSummaries = [];
         let filteredSummaries = [];
@@ -709,14 +875,15 @@
                     <tbody>
             `;
 
-            filteredSummaries.forEach((summary) => {
+            filteredSummaries.forEach((summary, index) => {
                 const time = summary.timestamp ? toPakistanTime(summary.timestamp) : 'Unknown';
                 const intent = summary.detected_intent || null;
                 const transcription = summary.original_transcription || null;
                 const finalResponse = summary.final_response || null;
+                const logCount = summary.log_count || 0;
 
                 html += `
-                    <tr>
+                    <tr onclick="showLogModal(${index})" title="Click to view all ${logCount} logs for this session">
                         <td class="col-time">${time}</td>
                         <td class="col-intent">${intent || '<span class="empty-value">-</span>'}</td>
                         <td class="col-transcription">${transcription || '<span class="empty-value">-</span>'}</td>
@@ -768,6 +935,70 @@
             localStorage.removeItem('access_token');
             window.location.href = '/login';
         }
+
+        function showLogModal(index) {
+            const summary = filteredSummaries[index];
+            if (!summary) return;
+
+            const modal = document.getElementById('logModal');
+            const modalUuid = document.getElementById('modalUuid');
+            const modalLogCount = document.getElementById('modalLogCount');
+            const modalBody = document.getElementById('modalBody');
+
+            modalUuid.textContent = summary.uuid || 'Unknown UUID';
+            modalLogCount.textContent = `${summary.log_count || 0} logs`;
+
+            const logs = summary.logs || [];
+            if (logs.length === 0) {
+                modalBody.innerHTML = `
+                    <div class="empty-state" style="padding: 40px 20px;">
+                        <div class="empty-state-icon">📭</div>
+                        <div>No detailed logs available for this session</div>
+                    </div>
+                `;
+            } else {
+                let logsHtml = '';
+                logs.forEach(log => {
+                    const logTime = log.timestamp ? toPakistanTime(log.timestamp) : log.formatted_time || 'Unknown';
+                    const message = log.message || '';
+                    logsHtml += `
+                        <div class="log-entry">
+                            <div class="log-timestamp">🕐 ${logTime}</div>
+                            <div class="log-message">${escapeHtml(message)}</div>
+                        </div>
+                    `;
+                });
+                modalBody.innerHTML = logsHtml;
+            }
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLogModal() {
+            const modal = document.getElementById('logModal');
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Close modal on overlay click or Escape key
+        document.getElementById('logModal').addEventListener('click', function (e) {
+            if (e.target === this) {
+                closeLogModal();
+            }
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                closeLogModal();
+            }
+        });
 
         // Event listeners
         document.getElementById('timeRangeSelect').addEventListener('change', function () {
