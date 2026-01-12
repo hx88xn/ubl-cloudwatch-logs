@@ -836,6 +836,30 @@
                     }
 
                     const data = await response.json();
+                    
+                    // Handle cache warming message
+                    if (data.cache_warming) {
+                        document.getElementById('summaryContainer').innerHTML = `
+                            <div class="loading">
+                                <div class="spinner"></div>
+                                <div style="margin-bottom: 12px;">⏳ ${data.message || 'Cache is warming up...'}</div>
+                                <div style="font-size: 13px; opacity: 0.7;">Auto-retrying in <span id="retryCountdown">30</span> seconds...</div>
+                            </div>
+                        `;
+                        // Auto-retry after 30 seconds
+                        let countdown = 30;
+                        const countdownEl = document.getElementById('retryCountdown');
+                        const countdownInterval = setInterval(() => {
+                            countdown--;
+                            if (countdownEl) countdownEl.textContent = countdown;
+                            if (countdown <= 0) {
+                                clearInterval(countdownInterval);
+                                fetchSummary();
+                            }
+                        }, 1000);
+                        return;
+                    }
+                    
                     allSummaries = data.summaries || [];
                     uuidLogsMap = {};  // No log details for large time range view
 

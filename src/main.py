@@ -51,12 +51,13 @@ def release_cache_lock(lock_name: str):
 def warmup_cache_sync():
     """Synchronously warm up cache for common time ranges (with distributed lock)."""
     # Only one worker should do warmup at a time
-    if not acquire_cache_lock("cache_warmup", timeout=600):
+    if not acquire_cache_lock("cache_warmup", timeout=900):
         print("🔒 Another worker is already warming cache, skipping...")
         return
     
     try:
         time_ranges = [6, 24, 168]  # 6 hours, 24 hours, 7 days (1h always fetches fresh)
+        summary_ranges = [168, 336]  # 7 days, 14 days for summary (most requested)
         
         print("🔥 Starting cache warmup (this worker acquired the lock)...")
         
@@ -70,6 +71,14 @@ def warmup_cache_sync():
                 
             except Exception as e:
                 print(f"  ⚠️ Failed to warm cache for {hours}h: {e}")
+        
+        # Warm up summary cache for large time ranges
+        for hours in summary_ranges:
+            try:
+                print(f"  📦 Warming cache for {hours}h summary logs...")
+                fetch_summary_logs(hours=hours)
+            except Exception as e:
+                print(f"  ⚠️ Failed to warm summary cache for {hours}h: {e}")
         
         print("✅ Cache warmup complete!")
     finally:
@@ -93,8 +102,15 @@ def periodic_cache_refresh():
         (720, CACHE_TTL_1MONTH * 0.8), # 1 month logs: refresh at 80% of 24h = 19.2h
     ]
     
+    # Summary-specific refresh (7d and 14d are commonly used)
+    summary_range_config = [
+        (168, CACHE_TTL_48H * 0.8),   # 7d summary
+        (336, CACHE_TTL_48H * 0.8),   # 14d summary
+    ]
+    
     # Track last refresh time for each range
     last_refresh = {hours: 0 for hours, _ in time_range_config}
+    last_summary_refresh = {hours: 0 for hours, _ in summary_range_config}
     
     # Wait for initial warmup to complete + stagger workers
     import random
@@ -122,6 +138,22 @@ def periodic_cache_refresh():
                         release_cache_lock(lock_name)
                 else:
                     print(f"  🔒 Another worker is refreshing {hours}h cache, skipping...")
+        
+        # Refresh summary caches
+        for hours, refresh_interval in summary_range_config:
+            time_since_refresh = current_time - last_summary_refresh[hours]
+            
+            if time_since_refresh >= refresh_interval:
+                lock_name = f"refresh_summary_{hours}h"
+                if acquire_cache_lock(lock_name, timeout=600):
+                    try:
+                        print(f"  🔄 Refreshing {hours}h summary cache...")
+                        fetch_summary_logs(hours=hours)
+                        last_summary_refresh[hours] = current_time
+                    except Exception as e:
+                        print(f"  ⚠️ Failed to refresh {hours}h summary cache: {e}")
+                    finally:
+                        release_cache_lock(lock_name)
         
         # Check every 30 seconds if any cache needs refresh
         time.sleep(30)
@@ -353,7 +385,10 @@ async def get_summary_data(
     current_user: User = Depends(get_current_user)
 ):
     hours = max(1, min(hours, 720))  # Allow up to 1 month (30 days)
-    result = fetch_summary_logs(hours=hours)
+    # For large time ranges (7+ days), use quick-fail mode to avoid 504 timeouts
+    # The background cache warming will populate the cache
+    allow_slow = hours < 168  # Only allow slow fetch for < 7 days
+    result = fetch_summary_logs(hours=hours, allow_slow_fetch=allow_slow)
     return result
 
 @app.get("/api/user/me", response_model=User)

@@ -92,6 +92,7 @@ def _fetch_summary_chunked(client, range_start: datetime, range_end: datetime, h
     current_end = range_end
     chunk_count = 0
     max_chunks = 31  # Safety limit: max 31 days for 1 month
+    max_iterations_per_chunk = 20  # Reduced to speed up - most days won't have this many pages
     
     print(f"📦 Fetching {hours} hours of summary logs in {chunk_hours}-hour chunks...")
     
@@ -104,10 +105,9 @@ def _fetch_summary_chunked(client, range_start: datetime, range_end: datetime, h
         
         next_token = None
         chunk_events = []
-        max_iterations = 50
         iteration = 0
         
-        while iteration < max_iterations:
+        while iteration < max_iterations_per_chunk:
             iteration += 1
             params = {
                 'logGroupName': LOG_GROUP_NAME,
@@ -172,32 +172,8 @@ def parse_log_message(message: str) -> Dict:
     
     return result
 
-def fetch_summary_logs(hours: int = 1) -> Dict:
-    """Fetch and parse summary logs, grouping by UUID."""
-    
-    # For short time ranges (<=6h), always fetch fresh (no caching)
-    if hours <= 6:
-        print(f"⚡ Fetching fresh {hours}h summary logs from CloudWatch (no cache)...")
-        try:
-            all_events = _fetch_summary_from_cloudwatch(hours)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error fetching summary logs: {str(e)}")
-    else:
-        # For longer time ranges (>6 hours), use caching
-        cache_key = generate_cache_key("summary", hours, None)
-        cached_events = get_cached_logs(cache_key)
-        if cached_events is not None:
-            print(f"✅ Cache HIT: {cache_key} ({len(cached_events)} logs)")
-            all_events = cached_events
-        else:
-            print(f"⚡ Cache MISS: {cache_key} - fetching from CloudWatch...")
-            try:
-                all_events = _fetch_summary_from_cloudwatch(hours)
-                set_cached_logs(cache_key, all_events, hours)
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Error fetching summary logs: {str(e)}")
-    
-    # Group logs by UUID
+def _process_events_to_summaries(all_events: List[dict]) -> Dict:
+    """Process raw events into grouped summaries by UUID."""
     uuid_groups = defaultdict(lambda: {
         'logs': [],
         'detected_intent': None,
@@ -268,3 +244,59 @@ def fetch_summary_logs(hours: int = 1) -> Dict:
         'total': len(summaries),
         'no_uuid_count': len(no_uuid_logs)
     }
+
+
+def fetch_summary_logs(hours: int = 1, allow_slow_fetch: bool = True) -> Dict:
+    """Fetch and parse summary logs, grouping by UUID."""
+    
+    # For short time ranges (<=6h), always fetch fresh (no caching)
+    if hours <= 6:
+        print(f"⚡ Fetching fresh {hours}h summary logs from CloudWatch (no cache)...")
+        try:
+            all_events = _fetch_summary_from_cloudwatch(hours)
+            return _process_events_to_summaries(all_events)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error fetching summary logs: {str(e)}")
+    
+    # For longer time ranges (>6 hours), cache the PROCESSED summaries (not raw events)
+    cache_key = generate_cache_key("summary_processed", hours, None)
+    cached_result = get_cached_logs(cache_key)
+    if cached_result is not None:
+        print(f"✅ Cache HIT: {cache_key} ({cached_result.get('total', 0)} summaries)")
+        return cached_result
+    
+    # For very large time ranges (7+ days), if cache is not ready, return a message
+    # This prevents 504 timeouts from load balancers
+    if hours >= 168 and not allow_slow_fetch:
+        return {
+            'summaries': [],
+            'total': 0,
+            'no_uuid_count': 0,
+            'cache_warming': True,
+            'message': f'Cache is warming up for {hours // 24} day data. Please retry in 2-3 minutes.'
+        }
+    
+    print(f"⚡ Cache MISS: {cache_key} - fetching from CloudWatch...")
+    try:
+        all_events = _fetch_summary_from_cloudwatch(hours)
+        result = _process_events_to_summaries(all_events)
+        
+        # Cache the processed result (much smaller than raw events)
+        # Remove detailed logs from cache to reduce size for large time ranges
+        if hours >= 168:  # 7+ days
+            cache_result = {
+                'summaries': [
+                    {k: v for k, v in s.items() if k != 'logs'} 
+                    for s in result['summaries']
+                ],
+                'total': result['total'],
+                'no_uuid_count': result['no_uuid_count']
+            }
+        else:
+            cache_result = result
+        
+        set_cached_logs(cache_key, cache_result, hours)
+        return result
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching summary logs: {str(e)}")
