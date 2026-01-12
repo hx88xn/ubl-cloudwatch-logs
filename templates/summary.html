@@ -829,6 +829,10 @@
                         return;
                     }
 
+                    if (!response.ok) {
+                        throw new Error(`Server error: ${response.status}`);
+                    }
+
                     const data = await response.json();
                     allSummaries = data.summaries || [];
                     uuidLogsMap = {};  // No log details for 1 month view
@@ -839,7 +843,7 @@
                 } else {
                     // For other ranges, fetch all logs and process client-side
                     isMonthView = false;
-                    response = await fetch(`/api/logs?hours=${hours}&limit=500000&page_size=500000`, {
+                    response = await fetch(`/api/logs?hours=${hours}&limit=100000&page_size=100000`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
 
@@ -847,6 +851,10 @@
                         localStorage.removeItem('access_token');
                         window.location.href = '/login';
                         return;
+                    }
+
+                    if (!response.ok) {
+                        throw new Error(`Server error: ${response.status}`);
                     }
 
                     const data = await response.json();
@@ -1008,26 +1016,15 @@
                 const finalResponse = summary.final_response || null;
                 const logCount = summary.log_count || 0;
 
-                // For 1 month view, disable row popup
-                if (isMonthView) {
-                    html += `
-                        <tr style="cursor: default;">
-                            <td class="col-time">${time}</td>
-                            <td class="col-intent">${intent || '<span class="empty-value">-</span>'}</td>
-                            <td class="col-transcription">${transcription || '<span class="empty-value">-</span>'}</td>
-                            <td class="col-final-response">${finalResponse || '<span class="empty-value">-</span>'}</td>
-                        </tr>
-                    `;
-                } else {
-                    html += `
-                        <tr onclick="showLogModal('${summary.uuid}')" title="Click to view all ${logCount} logs for this session">
-                            <td class="col-time">${time}</td>
-                            <td class="col-intent">${intent || '<span class="empty-value">-</span>'}</td>
-                            <td class="col-transcription">${transcription || '<span class="empty-value">-</span>'}</td>
-                            <td class="col-final-response">${finalResponse || '<span class="empty-value">-</span>'}</td>
-                        </tr>
-                    `;
-                }
+                // Enable row popup for all views
+                html += `
+                    <tr onclick="showLogModal('${summary.uuid}')" title="Click to view all logs for this session">
+                        <td class="col-time">${time}</td>
+                        <td class="col-intent">${intent || '<span class="empty-value">-</span>'}</td>
+                        <td class="col-transcription">${transcription || '<span class="empty-value">-</span>'}</td>
+                        <td class="col-final-response">${finalResponse || '<span class="empty-value">-</span>'}</td>
+                    </tr>
+                `;
             });
 
             html += `
@@ -1075,7 +1072,7 @@
             window.location.href = '/login';
         }
 
-        function showLogModal(uuid) {
+        async function showLogModal(uuid) {
             if (!uuid) return;
 
             const modal = document.getElementById('logModal');
@@ -1084,16 +1081,57 @@
             const modalBody = document.getElementById('modalBody');
 
             modalUuid.textContent = uuid;
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
 
-            // Get logs directly from the uuidLogsMap (no API call needed)
-            const logs = uuidLogsMap[uuid] || [];
+            // Check if we have logs in memory, otherwise fetch from API
+            let logs = uuidLogsMap[uuid] || [];
+
+            if (logs.length === 0 && isMonthView) {
+                // For 1 month view, fetch logs from API
+                modalLogCount.textContent = 'Loading...';
+                modalBody.innerHTML = `
+                    <div class="loading" style="padding: 40px;">
+                        <div class="spinner"></div>
+                        <div>Fetching logs for this session...</div>
+                    </div>
+                `;
+
+                try {
+                    const hours = customHours || document.getElementById('timeRangeSelect').value;
+                    const response = await fetch(`/api/logs?hours=${hours}&uuid=${uuid}&page_size=50000`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (response.status === 401) {
+                        localStorage.removeItem('access_token');
+                        window.location.href = '/login';
+                        return;
+                    }
+
+                    const data = await response.json();
+                    logs = data.logs || [];
+                } catch (error) {
+                    console.error('Error fetching logs:', error);
+                    modalBody.innerHTML = `
+                        <div class="empty-state" style="padding: 40px 20px;">
+                            <div class="empty-state-icon">⚠️</div>
+                            <div>Error loading logs: ${error.message}</div>
+                        </div>
+                    `;
+                    modalLogCount.textContent = 'Error';
+                    return;
+                }
+            }
+
             modalLogCount.textContent = `${logs.length} logs`;
 
             if (logs.length === 0) {
+                document.getElementById('modalTime').textContent = '';
                 modalBody.innerHTML = `
                     <div class="empty-state" style="padding: 40px 20px;">
                         <div class="empty-state-icon">📭</div>
-                        <div>No logs found for this UUID</div>
+                        <div>No logs found for this session</div>
                     </div>
                 `;
             } else {
@@ -1114,9 +1152,6 @@
                 });
                 modalBody.innerHTML = logsHtml;
             }
-
-            modal.classList.add('active');
-            document.body.style.overflow = 'hidden';
         }
 
         function closeLogModal() {
