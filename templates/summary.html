@@ -687,6 +687,7 @@
                         <option value="24">Last 24 hours</option>
                         <option value="48">Last 2 days</option>
                         <option value="168">Last 7 days</option>
+                        <option value="336">Last 14 days</option>
                         <option value="720">Last 1 Month</option>
                         <option value="custom">⏱️ Custom...</option>
                     </select>
@@ -789,7 +790,7 @@
 
         function showLoading() {
             const hours = customHours || document.getElementById('timeRangeSelect').value;
-            let timeInfo = hours >= 720 ? '1 month' : hours >= 168 ? '7 days' : hours >= 24 ? '24 hours' : hours + ' hours';
+            let timeInfo = hours >= 720 ? '1 month' : hours >= 336 ? '14 days' : hours >= 168 ? '7 days' : hours >= 24 ? '24 hours' : hours + ' hours';
             let extraMsg = hours >= 168 ? '<div style="margin-top: 8px; font-size: 12px; opacity: 0.7;">Large time ranges may take longer to load...</div>' : '';
             document.getElementById('summaryContainer').innerHTML = `
                 <div class="loading">
@@ -816,8 +817,9 @@
             try {
                 let response;
 
-                // For 1 month (720 hours), use the filtered /api/summary endpoint
-                if (hours >= 720) {
+                // For 7+ days (168 hours), use the filtered /api/summary endpoint (server-side filtering)
+                // This prevents timeouts by using CloudWatch filter patterns
+                if (hours >= 168) {
                     isMonthView = true;
                     response = await fetch(`/api/summary?hours=${hours}`, {
                         headers: { 'Authorization': `Bearer ${token}` }
@@ -835,13 +837,13 @@
 
                     const data = await response.json();
                     allSummaries = data.summaries || [];
-                    uuidLogsMap = {};  // No log details for 1 month view
+                    uuidLogsMap = {};  // No log details for large time range view
 
                     updateStats({ total: allSummaries.length });
                     applySearchFilter();
                     showToast(`✓ Summary refreshed (${allSummaries.length} sessions)`);
                 } else {
-                    // For other ranges, fetch all logs and process client-side
+                    // For shorter ranges (<7 days), fetch all logs and process client-side
                     isMonthView = false;
                     response = await fetch(`/api/logs?hours=${hours}&limit=100000&page_size=100000`, {
                         headers: { 'Authorization': `Bearer ${token}` }
@@ -962,7 +964,7 @@
                     document.getElementById('timeRangeDisplay').textContent = customHours + 'h';
                 }
             } else {
-                const ranges = { '1': '1h', '6': '6h', '24': '24h', '48': '2d', '168': '7d', '720': '1m' };
+                const ranges = { '1': '1h', '6': '6h', '24': '24h', '48': '2d', '168': '7d', '336': '14d', '720': '1m' };
                 document.getElementById('timeRangeDisplay').textContent = ranges[hours] || hours + 'h';
             }
         }
