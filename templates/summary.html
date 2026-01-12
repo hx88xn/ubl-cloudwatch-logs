@@ -677,7 +677,7 @@
             <div class="filters-grid">
                 <div class="filter-group">
                     <label>🔍 Search</label>
-                    <input type="text" id="searchInput" placeholder="Search by UUID or transcription...">
+                    <input type="text" id="searchInput" placeholder="Search by transcription or intent...">
                 </div>
                 <div class="filter-group">
                     <label>⏰ Time Range</label>
@@ -731,9 +731,18 @@
             <div class="modal-header">
                 <h3>
                     📋 Session Logs
-                    <span class="modal-uuid" id="modalUuid"></span>
                     <span class="log-count-badge" id="modalLogCount"></span>
                 </h3>
+                <div style="display: flex; gap: 16px; margin-top: 8px; font-size: 13px; flex-wrap: wrap;">
+                    <span
+                        style="background: rgba(102, 126, 234, 0.2); padding: 4px 12px; border-radius: 6px; color: #a5b4fc;">
+                        🕐 <span id="modalTime"></span>
+                    </span>
+                    <span
+                        style="background: rgba(251, 191, 36, 0.2); padding: 4px 12px; border-radius: 6px; color: #fbbf24; font-family: 'JetBrains Mono', monospace; font-size: 11px;">
+                        🔑 <span id="modalUuid"></span>
+                    </span>
+                </div>
                 <button class="modal-close" onclick="closeLogModal()">✕</button>
             </div>
             <div class="modal-body" id="modalBody">
@@ -779,10 +788,14 @@
         }
 
         function showLoading() {
+            const hours = customHours || document.getElementById('timeRangeSelect').value;
+            let timeInfo = hours >= 720 ? '1 month' : hours >= 168 ? '7 days' : hours >= 24 ? '24 hours' : hours + ' hours';
+            let extraMsg = hours >= 168 ? '<div style="margin-top: 8px; font-size: 12px; opacity: 0.7;">Large time ranges may take longer to load...</div>' : '';
             document.getElementById('summaryContainer').innerHTML = `
                 <div class="loading">
                     <div class="spinner"></div>
-                    <div>Loading logs and generating summaries...</div>
+                    <div>Loading ${timeInfo} of logs...</div>
+                    ${extraMsg}
                 </div>
             `;
         }
@@ -794,39 +807,66 @@
             setTimeout(() => toast.classList.remove('show'), 3000);
         }
 
+        let isMonthView = false;  // Track if we're viewing 1 month data (no row popup)
+
         async function fetchSummary() {
-            const hours = customHours || document.getElementById('timeRangeSelect').value;
+            const hours = parseInt(customHours || document.getElementById('timeRangeSelect').value);
             showLoading();
 
             try {
-                // Fetch ALL logs from the cached /api/logs endpoint
-                const response = await fetch(`/api/logs?hours=${hours}&limit=100000&page_size=100000`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                let response;
 
-                if (response.status === 401) {
-                    localStorage.removeItem('access_token');
-                    window.location.href = '/login';
-                    return;
+                // For 1 month (720 hours), use the filtered /api/summary endpoint
+                if (hours >= 720) {
+                    isMonthView = true;
+                    response = await fetch(`/api/summary?hours=${hours}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (response.status === 401) {
+                        localStorage.removeItem('access_token');
+                        window.location.href = '/login';
+                        return;
+                    }
+
+                    const data = await response.json();
+                    allSummaries = data.summaries || [];
+                    uuidLogsMap = {};  // No log details for 1 month view
+
+                    updateStats({ total: allSummaries.length });
+                    applySearchFilter();
+                    showToast(`✓ Summary refreshed (${allSummaries.length} sessions)`);
+                } else {
+                    // For other ranges, fetch all logs and process client-side
+                    isMonthView = false;
+                    response = await fetch(`/api/logs?hours=${hours}&limit=500000&page_size=500000`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (response.status === 401) {
+                        localStorage.removeItem('access_token');
+                        window.location.href = '/login';
+                        return;
+                    }
+
+                    const data = await response.json();
+                    const allLogs = data.logs || [];
+
+                    // Process logs client-side to generate summaries
+                    const result = processLogsToSummaries(allLogs);
+                    allSummaries = result.summaries;
+                    uuidLogsMap = result.uuidLogsMap;
+
+                    updateStats({ total: allSummaries.length });
+                    applySearchFilter();
+                    showToast(`✓ Summary refreshed (${allLogs.length} logs processed)`);
                 }
-
-                const data = await response.json();
-                const allLogs = data.logs || [];
-
-                // Process logs client-side to generate summaries
-                const result = processLogsToSummaries(allLogs);
-                allSummaries = result.summaries;
-                uuidLogsMap = result.uuidLogsMap;
-
-                updateStats({ total: allSummaries.length });
-                applySearchFilter();
-                showToast(`✓ Summary refreshed (${allLogs.length} logs processed)`);
             } catch (error) {
                 console.error('Error:', error);
                 document.getElementById('summaryContainer').innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">⚠️</div>
-                        <div>Error loading logs: ${error.message}</div>
+                        <div>Error loading data: ${error.message}</div>
                     </div>
                 `;
             }
@@ -924,7 +964,6 @@
 
             if (query) {
                 filteredSummaries = allSummaries.filter(s =>
-                    (s.uuid && s.uuid.toLowerCase().includes(query)) ||
                     (s.original_transcription && s.original_transcription.toLowerCase().includes(query)) ||
                     (s.detected_intent && s.detected_intent.toLowerCase().includes(query))
                 );
@@ -969,14 +1008,26 @@
                 const finalResponse = summary.final_response || null;
                 const logCount = summary.log_count || 0;
 
-                html += `
-                    <tr onclick="showLogModal('${summary.uuid}')" title="Click to view all ${logCount} logs for this session">
-                        <td class="col-time">${time}</td>
-                        <td class="col-intent">${intent || '<span class="empty-value">-</span>'}</td>
-                        <td class="col-transcription">${transcription || '<span class="empty-value">-</span>'}</td>
-                        <td class="col-final-response">${finalResponse || '<span class="empty-value">-</span>'}</td>
-                    </tr>
-                `;
+                // For 1 month view, disable row popup
+                if (isMonthView) {
+                    html += `
+                        <tr style="cursor: default;">
+                            <td class="col-time">${time}</td>
+                            <td class="col-intent">${intent || '<span class="empty-value">-</span>'}</td>
+                            <td class="col-transcription">${transcription || '<span class="empty-value">-</span>'}</td>
+                            <td class="col-final-response">${finalResponse || '<span class="empty-value">-</span>'}</td>
+                        </tr>
+                    `;
+                } else {
+                    html += `
+                        <tr onclick="showLogModal('${summary.uuid}')" title="Click to view all ${logCount} logs for this session">
+                            <td class="col-time">${time}</td>
+                            <td class="col-intent">${intent || '<span class="empty-value">-</span>'}</td>
+                            <td class="col-transcription">${transcription || '<span class="empty-value">-</span>'}</td>
+                            <td class="col-final-response">${finalResponse || '<span class="empty-value">-</span>'}</td>
+                        </tr>
+                    `;
+                }
             });
 
             html += `
@@ -1001,12 +1052,12 @@
                 return;
             }
 
-            const csvRows = ['UUID,Time,Detected Intent,Original Transcription,Final Response,Log Count'];
+            const csvRows = ['Time,Detected Intent,Original Transcription,Final Response,Log Count'];
             filteredSummaries.forEach(s => {
                 const time = s.timestamp ? toPakistanTime(s.timestamp) : '';
                 const transcription = (s.original_transcription || '').replace(/"/g, '""');
                 const finalResponse = (s.final_response || '').replace(/"/g, '""');
-                csvRows.push(`"${s.uuid}","${time}","${s.detected_intent || ''}","${transcription}","${finalResponse}","${s.log_count || 0}"`);
+                csvRows.push(`"${time}","${s.detected_intent || ''}","${transcription}","${finalResponse}","${s.log_count || 0}"`);
             });
 
             const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
@@ -1046,13 +1097,17 @@
                     </div>
                 `;
             } else {
+                // Get the session time from the first (most recent) log
+                const sessionTime = logs[0]?.timestamp ? toPakistanTime(logs[0].timestamp) : 'Unknown';
+                document.getElementById('modalTime').textContent = sessionTime;
+
                 let logsHtml = '';
                 logs.forEach(log => {
-                    const logTime = log.timestamp ? toPakistanTime(log.timestamp) : 'Unknown';
-                    const message = log.message || '';
+                    let message = log.message || '';
+                    // Remove UUID pattern from message: [xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx]
+                    message = message.replace(/\[[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\]/g, '').trim();
                     logsHtml += `
                         <div class="log-entry">
-                            <div class="log-timestamp">🕐 ${logTime}</div>
                             <div class="log-message">${escapeHtml(message)}</div>
                         </div>
                     `;

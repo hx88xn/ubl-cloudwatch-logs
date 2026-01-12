@@ -252,9 +252,9 @@ async def get_logs(
     current_user: User = Depends(get_current_user)
 ):
     hours = max(1, min(hours, 720))  # Allow up to 1 month (30 days)
-    limit = max(100, min(limit, 50000))
+    limit = max(100, min(limit, 500000))  # Increased for 1 month data
     page = max(1, page)
-    page_size = max(10, min(page_size, 50000))  # Allow large page size for UUID grouping
+    page_size = max(10, min(page_size, 500000))  # Increased for 1 month data
     
     result = fetch_logs(
         hours=hours, 
@@ -296,7 +296,7 @@ async def get_uuids(
     current_user: User = Depends(get_current_user)
 ):
     hours = max(1, min(hours, 720))  # Allow up to 1 month (30 days)
-    limit = max(100, min(limit, 50000))
+    limit = max(100, min(limit, 500000))  # Increased for 1 month data
     
     result = fetch_logs(
         hours=hours, 
@@ -318,9 +318,9 @@ async def get_app_logs(
     current_user: User = Depends(get_current_user)
 ):
     hours = max(1, min(hours, 720))  # Allow up to 1 month (30 days)
-    limit = max(100, min(limit, 50000))
+    limit = max(100, min(limit, 500000))  # Increased for 1 month data
     page = max(1, page)
-    page_size = max(10, min(page_size, 50000))  # Allow large page size for UUID grouping
+    page_size = max(10, min(page_size, 500000))  # Increased for 1 month data
     
     result = fetch_app_logs(
         hours=hours,

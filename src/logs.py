@@ -169,8 +169,8 @@ def _fetch_logs_chunked(client, range_start: datetime, range_end: datetime, filt
     
     current_end = range_end
     chunk_count = 0
-    max_chunks = 14  # Safety limit: max 14 days
-    max_iterations_per_chunk = 50  # Limit iterations per chunk
+    max_chunks = 31  # Safety limit: max 31 days for 1 month
+    max_iterations_per_chunk = 30  # Limit iterations per chunk (reduced for speed)
     
     print(f"📦 Fetching {total_hours:.1f} hours of logs in {chunk_hours}-hour chunks...")
     
@@ -208,7 +208,7 @@ def _fetch_logs_chunked(client, range_start: datetime, range_end: datetime, filt
             if not next_token:
                 break
         
-        print(f"  📄 Chunk {chunk_count}: {chunk_start.strftime('%Y-%m-%d %H:%M')} to {current_end.strftime('%Y-%m-%d %H:%M')} - {len(chunk_events)} events")
+        print(f"  📄 Chunk {chunk_count}/{int(total_hours/24)+1}: {chunk_start.strftime('%Y-%m-%d')} - {len(chunk_events)} events")
         all_events.extend(chunk_events)
         
         # Move to next chunk
