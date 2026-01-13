@@ -1,3 +1,5 @@
 .env
 __pycache__/    
 audio_files/
+data.csv
+test.ipynb
