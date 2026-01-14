@@ -997,15 +997,28 @@
             const query = document.getElementById('searchInput').value.toLowerCase().trim();
 
             if (query) {
-                filteredSummaries = allSummaries.filter(s =>
-                    (s.original_transcription && s.original_transcription.toLowerCase().includes(query)) ||
-                    (s.detected_intent && s.detected_intent.toLowerCase().includes(query))
-                );
+                filteredSummaries = allSummaries.filter(s => {
+                    const transcription = s.original_transcription && s.original_transcription.toLowerCase().includes(query);
+                    const intent = s.detected_intent && s.detected_intent.toLowerCase().includes(query);
+                    const typeFromResponse = extractTypeFromFinalResponse(s.final_response);
+                    const typeMatch = typeFromResponse && typeFromResponse.toLowerCase().includes(query);
+                    return transcription || intent || typeMatch;
+                });
             } else {
                 filteredSummaries = allSummaries;
             }
 
             displaySummaries();
+        }
+
+        function extractTypeFromFinalResponse(finalResponse) {
+            if (!finalResponse) return null;
+            // Try to extract 'type' value using regex (handles both Python dict and JSON format)
+            const typeMatch = finalResponse.match(/['"]type['"]\s*:\s*['"]([^'"]+)['"]/);
+            if (typeMatch) {
+                return typeMatch[1];
+            }
+            return null;
         }
 
         function displaySummaries() {
@@ -1037,9 +1050,9 @@
 
             filteredSummaries.forEach((summary, index) => {
                 const time = summary.timestamp ? toPakistanTime(summary.timestamp) : 'Unknown';
-                const intent = summary.detected_intent || null;
-                const transcription = summary.original_transcription || null;
                 const finalResponse = summary.final_response || null;
+                const intent = extractTypeFromFinalResponse(finalResponse) || null;
+                const transcription = summary.original_transcription || null;
                 const logCount = summary.log_count || 0;
 
                 // Enable row popup for all views
@@ -1080,7 +1093,8 @@
                 const time = s.timestamp ? toPakistanTime(s.timestamp) : '';
                 const transcription = (s.original_transcription || '').replace(/"/g, '""');
                 const finalResponse = (s.final_response || '').replace(/"/g, '""');
-                csvRows.push(`"${time}","${s.detected_intent || ''}","${transcription}","${finalResponse}","${s.log_count || 0}"`);
+                const intent = extractTypeFromFinalResponse(s.final_response) || '';
+                csvRows.push(`"${time}","${intent}","${transcription}","${finalResponse}","${s.log_count || 0}"`);
             });
 
             const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
