@@ -22,11 +22,11 @@ PKT = timezone(timedelta(hours=5))
 # Intent types to track
 INTENT_TYPES = ['send_money', 'pay_bill', 'mobile_topup', 'download_statement', 'unknown']
 
-# Regex to extract detected intent from log messages
-DETECTED_INTENT_PATTERN = re.compile(r'Detected Intent:\s*(\w+)', re.IGNORECASE)
+# Regex to extract 'type' from Final Response (handles both Python dict and JSON format)
+FINAL_RESPONSE_TYPE_PATTERN = re.compile(r"['\"]type['\"]\s*:\s*['\"]([^'\"]+)['\"]")
 
-# CloudWatch filter pattern for detected intent logs (server-side filtering)
-DETECTED_INTENT_FILTER = '"Detected Intent:"'
+# CloudWatch filter pattern for Final Response logs (server-side filtering)
+FINAL_RESPONSE_FILTER = '"Final Response:"'
 
 def get_cloudwatch_client():
     return boto3.client(
@@ -36,8 +36,9 @@ def get_cloudwatch_client():
         region_name=AWS_REGION
     )
 
-def parse_detected_intent(message: str) -> Optional[str]:
-    match = DETECTED_INTENT_PATTERN.search(message)
+def parse_intent_from_final_response(message: str) -> Optional[str]:
+    # Extract 'type' value from Final Response in the log message
+    match = FINAL_RESPONSE_TYPE_PATTERN.search(message)
     if match:
         intent = match.group(1).lower()
         if intent in INTENT_TYPES:
@@ -73,7 +74,7 @@ def _fetch_intent_logs_from_cloudwatch(hours: int) -> List[dict]:
             'logGroupName': LOG_GROUP_NAME,
             'startTime': api_start_time_ms,
             'endTime': api_end_time_ms,
-            'filterPattern': DETECTED_INTENT_FILTER,
+            'filterPattern': FINAL_RESPONSE_FILTER,
             'limit': 10000
         }
         
@@ -215,7 +216,7 @@ def get_intent_traffic_data(hours: int = 1) -> Dict:
         message = event.get('message', '')
         timestamp = event.get('timestamp', 0)
         
-        intent = parse_detected_intent(message)
+        intent = parse_intent_from_final_response(message)
         if intent:
             # Calculate bucket index using UTC
             event_time = datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc)
