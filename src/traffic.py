@@ -131,7 +131,7 @@ def _fetch_intent_logs_chunked(client, range_start: datetime, range_end: datetim
                 'logGroupName': LOG_GROUP_NAME,
                 'startTime': api_start_time_ms,
                 'endTime': api_end_time_ms,
-                'filterPattern': DETECTED_INTENT_FILTER,
+                'filterPattern': FINAL_RESPONSE_FILTER,
                 'limit': 10000
             }
             
