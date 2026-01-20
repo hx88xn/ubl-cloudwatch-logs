@@ -68,8 +68,11 @@ def _fetch_intent_logs_from_cloudwatch(hours: int) -> List[dict]:
     
     all_events = []
     next_token = None
+    max_iterations = 100  # Safety limit to prevent infinite loops/timeouts
+    iteration = 0
     
-    while True:
+    while iteration < max_iterations:
+        iteration += 1
         params = {
             'logGroupName': LOG_GROUP_NAME,
             'startTime': api_start_time_ms,
@@ -89,6 +92,9 @@ def _fetch_intent_logs_from_cloudwatch(hours: int) -> List[dict]:
         if not next_token:
             break
     
+    if iteration >= max_iterations:
+        print(f"⚠️ Warning: Reached max iterations ({max_iterations}) for traffic fetch, results may be incomplete")
+    
     return all_events
 
 
@@ -106,6 +112,8 @@ def _fetch_intent_logs_chunked(client, range_start: datetime, range_end: datetim
     total_hours = (range_end - range_start).total_seconds() / 3600
     print(f"📦 Fetching {total_hours:.1f} hours of intent logs in {chunk_hours}-hour chunks...")
     
+    max_iterations_per_chunk = 30  # Limit iterations per chunk to prevent timeouts
+    
     while current_end > range_start and chunk_count < max_chunks:
         chunk_count += 1
         chunk_start = max(current_end - timedelta(hours=chunk_hours), range_start)
@@ -115,8 +123,10 @@ def _fetch_intent_logs_chunked(client, range_start: datetime, range_end: datetim
         
         next_token = None
         chunk_events = []
+        iteration = 0
         
-        while True:
+        while iteration < max_iterations_per_chunk:
+            iteration += 1
             params = {
                 'logGroupName': LOG_GROUP_NAME,
                 'startTime': api_start_time_ms,
@@ -155,7 +165,8 @@ def get_intent_traffic_data(hours: int = 1) -> Dict:
         try:
             all_events = _fetch_intent_logs_from_cloudwatch(hours)
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error fetching traffic data: {str(e)}")
+            print(f"❌ Traffic fetch error: {type(e).__name__}: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error fetching traffic data: {type(e).__name__}: {str(e)}")
     else:
         # For longer time ranges (>6 hours), use caching
         cache_key = generate_cache_key("traffic", hours, None)
@@ -169,7 +180,8 @@ def get_intent_traffic_data(hours: int = 1) -> Dict:
                 all_events = _fetch_intent_logs_from_cloudwatch(hours)
                 set_cached_logs(cache_key, all_events, hours)
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Error fetching traffic data: {str(e)}")
+                print(f"❌ Traffic fetch error: {type(e).__name__}: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Error fetching traffic data: {type(e).__name__}: {str(e)}")
     
     # Determine bucket size based on time range
     if hours <= 1:
