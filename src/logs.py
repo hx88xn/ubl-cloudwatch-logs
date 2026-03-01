@@ -38,6 +38,7 @@ FILTER_PATTERNS = [
     '/.env',
     '/api-docs/',
     '/service/api-docs',
+    '500 Internal Server Error',
 ]
 
 APP_LOGS_PATTERNS = [
