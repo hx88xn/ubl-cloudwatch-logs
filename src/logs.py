@@ -38,6 +38,8 @@ FILTER_PATTERNS = [
     '/.env',
     '/api-docs/',
     '/service/api-docs',
+    # Filter Grafana Loki handler internal logs
+    '[GrafanaLoki]',
 ]
 
 APP_LOGS_PATTERNS = [
