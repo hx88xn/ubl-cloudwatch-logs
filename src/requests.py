@@ -16,9 +16,7 @@ UUID_PATTERN = re.compile(r'\[([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9
 
 COMPLETED_PERIOD_TTL = 365 * 24 * 3600
 CURRENT_PERIOD_TTL = 3600
-# Failed/zero fetches for completed periods retry after 1 hour instead of being stuck for a year
 RETRY_TTL = 3600
-
 
 _cw_retry_config = BotoConfig(
     retries={'max_attempts': 8, 'mode': 'adaptive'}
@@ -32,6 +30,19 @@ def _get_cloudwatch_client():
         region_name=AWS_REGION,
         config=_cw_retry_config,
     )
+
+
+def get_log_retention_days() -> Optional[int]:
+    try:
+        client = _get_cloudwatch_client()
+        resp = client.describe_log_groups(logGroupNamePrefix=LOG_GROUP_NAME, limit=1)
+        groups = resp.get('logGroups', [])
+        for g in groups:
+            if g['logGroupName'] == LOG_GROUP_NAME:
+                return g.get('retentionInDays')
+        return None
+    except Exception:
+        return None
 
 
 def _fetch_events_for_range(start_dt: datetime, end_dt: datetime) -> List[dict]:
@@ -243,14 +254,40 @@ def _build_daily_specs(now_pkt: datetime, num_periods: int) -> List[dict]:
 def get_requests_data(period: str = 'monthly', num_periods: int = 6) -> Dict:
     now_pkt = datetime.now(PKT)
 
+    retention_days = get_log_retention_days()
+    if retention_days:
+        max_lookback = now_pkt - timedelta(days=retention_days)
+        print(f"📋 CloudWatch retention: {retention_days} days (logs available from {max_lookback.strftime('%Y-%m-%d')})")
+    else:
+        max_lookback = None
+        print("📋 CloudWatch retention: unlimited (or unable to determine)")
+
     if period == 'monthly':
         specs = _build_monthly_specs(now_pkt, num_periods)
     elif period == 'weekly':
         specs = _build_weekly_specs(now_pkt, num_periods)
-    elif period == 'daily':
-        specs = _build_daily_specs(now_pkt, num_periods)
     else:
-        raise ValueError(f"Invalid period '{period}'. Must be monthly, weekly, or daily.")
+        raise ValueError(f"Invalid period '{period}'. Must be monthly or weekly.")
+
+    # Trim specs to only include periods within retention window
+    if max_lookback is not None:
+        valid_specs = []
+        for spec in specs:
+            if spec['end'] > max_lookback:
+                if spec['start'] < max_lookback:
+                    spec['start'] = max_lookback
+                valid_specs.append(spec)
+            else:
+                print(f"  ⏭️ Skipping {spec['label']} — outside CloudWatch retention ({retention_days}d)")
+        specs = valid_specs
+
+    if not specs:
+        return {
+            'period': period, 'labels': [], 'counts': [], 'total': 0,
+            'peak': 0, 'average': 0, 'cached_flags': [],
+            'retention_days': retention_days,
+            'details': [],
+        }
 
     results: List[Optional[dict]] = [None] * len(specs)
     uncached_indices = []
@@ -258,7 +295,8 @@ def get_requests_data(period: str = 'monthly', num_periods: int = 6) -> Dict:
     for i, spec in enumerate(specs):
         cached_val = _get_cached_count(spec['cache_key'])
         if cached_val is not None:
-            results[i] = {'label': spec['label'], 'count': cached_val, 'cached': True}
+            results[i] = {'label': spec['label'], 'count': cached_val, 'cached': True,
+                          'events_found': None, 'error': None}
         else:
             uncached_indices.append(i)
 
@@ -266,25 +304,29 @@ def get_requests_data(period: str = 'monthly', num_periods: int = 6) -> Dict:
         print(f"⚡ Requests ({period}): fetching {len(uncached_indices)} uncached period(s) from CloudWatch...")
         for fetch_num, idx in enumerate(uncached_indices):
             spec = specs[idx]
-            failed = False
+            error_msg = None
+            events_found = 0
             try:
                 events = _fetch_events_for_range(spec['start'], spec['end'])
+                events_found = len(events)
                 count_val = _count_unique_requests(events)
-                print(f"  📊 {spec['label']}: {count_val} unique requests from {len(events)} events")
+                print(f"  📊 {spec['label']}: {count_val} unique requests from {events_found} events "
+                      f"({spec['start'].strftime('%Y-%m-%d %H:%M')} → {spec['end'].strftime('%Y-%m-%d %H:%M')} PKT)")
             except Exception as e:
-                print(f"⚠️ Requests: failed to fetch {spec['label']}: {e}")
+                error_msg = f"{type(e).__name__}: {e}"
+                print(f"⚠️ Requests: failed to fetch {spec['label']}: {error_msg}")
                 count_val = 0
-                failed = True
 
             if spec['is_complete'] and count_val > 0:
                 ttl = COMPLETED_PERIOD_TTL
-            elif spec['is_complete'] and (count_val == 0 or failed):
+            elif spec['is_complete']:
                 ttl = RETRY_TTL
             else:
                 ttl = CURRENT_PERIOD_TTL
 
             _set_cached_count(spec['cache_key'], count_val, ttl)
-            results[idx] = {'label': spec['label'], 'count': count_val, 'cached': False}
+            results[idx] = {'label': spec['label'], 'count': count_val, 'cached': False,
+                            'events_found': events_found, 'error': error_msg}
 
             if fetch_num < len(uncached_indices) - 1:
                 time.sleep(1)
@@ -298,4 +340,15 @@ def get_requests_data(period: str = 'monthly', num_periods: int = 6) -> Dict:
         'peak': max(counts) if counts else 0,
         'average': round(sum(counts) / len(counts), 1) if counts else 0,
         'cached_flags': [r['cached'] for r in results],
+        'retention_days': retention_days,
+        'details': [
+            {
+                'label': r['label'],
+                'count': r['count'],
+                'cached': r['cached'],
+                'events_found': r.get('events_found'),
+                'error': r.get('error'),
+            }
+            for r in results
+        ],
     }

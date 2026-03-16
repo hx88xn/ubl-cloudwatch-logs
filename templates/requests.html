@@ -364,6 +364,7 @@
     <div class="container">
         <div class="header">
             <h1>📊 Requests</h1>
+            <p id="retentionNotice" style="display:none; margin-top:8px; color:#f59e0b; font-size:13px;"></p>
         </div>
 
         <div class="period-section">
@@ -469,10 +470,15 @@
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
                 const data = await res.json();
+                console.table(data.details);
+                if (data.retention_days) {
+                    console.log(`CloudWatch retention: ${data.retention_days} days`);
+                }
                 renderChart(data);
                 updateStats(data);
                 updateCacheBadge(data.cached_flags);
                 updateSubtitle(data);
+                updateRetentionNotice(data);
                 showToast('Data loaded');
 
             } catch (err) {
@@ -581,6 +587,16 @@
             const periodLabel = { monthly: 'month', weekly: 'week' }[data.period] || data.period;
             document.getElementById('chartSubtitle').textContent =
                 `${data.labels.length} ${periodLabel}s · ${data.total.toLocaleString()} total requests`;
+        }
+
+        function updateRetentionNotice(data) {
+            const el = document.getElementById('retentionNotice');
+            if (data.retention_days) {
+                el.style.display = 'block';
+                el.textContent = `⚠️ CloudWatch log retention is ${data.retention_days} days — only periods within this window will have data.`;
+            } else {
+                el.style.display = 'none';
+            }
         }
 
         function reload() { fetchData(); }
