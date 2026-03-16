@@ -1,9 +1,11 @@
 import re
 import json
+import time
 import boto3
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
+from botocore.config import Config as BotoConfig
 from src.config import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, LOG_GROUP_NAME
 from src.cache import get_redis_client
 
@@ -12,18 +14,23 @@ PKT = timezone(timedelta(hours=5))
 FINAL_RESPONSE_FILTER = '"Final Response:"'
 UUID_PATTERN = re.compile(r'\[([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\]')
 
-# Completed periods never change — cache for 1 year
 COMPLETED_PERIOD_TTL = 365 * 24 * 3600
-# Current (incomplete) period refreshes every hour
 CURRENT_PERIOD_TTL = 3600
+# Failed/zero fetches for completed periods retry after 1 hour instead of being stuck for a year
+RETRY_TTL = 3600
 
+
+_cw_retry_config = BotoConfig(
+    retries={'max_attempts': 8, 'mode': 'adaptive'}
+)
 
 def _get_cloudwatch_client():
     return boto3.client(
         'logs',
         aws_access_key_id=AWS_ACCESS_KEY_ID,
         aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-        region_name=AWS_REGION
+        region_name=AWS_REGION,
+        config=_cw_retry_config,
     )
 
 
@@ -39,7 +46,7 @@ def _fetch_events_for_range(start_dt: datetime, end_dt: datetime) -> List[dict]:
     api_start_ms = int(start_dt.timestamp() * 1000)
     api_end_ms = int(end_dt.timestamp() * 1000)
 
-    for _ in range(100):
+    for iteration in range(100):
         params = {
             'logGroupName': LOG_GROUP_NAME,
             'startTime': api_start_ms,
@@ -56,6 +63,8 @@ def _fetch_events_for_range(start_dt: datetime, end_dt: datetime) -> List[dict]:
         next_token = response.get('nextToken')
         if not next_token:
             break
+        if iteration % 3 == 2:
+            time.sleep(0.25)
 
     return all_events
 
@@ -77,7 +86,7 @@ def _fetch_events_chunked(client, range_start: datetime, range_end: datetime) ->
         api_end_ms = int(current_end.timestamp() * 1000)
 
         next_token = None
-        for _ in range(30):
+        for iteration in range(30):
             params = {
                 'logGroupName': LOG_GROUP_NAME,
                 'startTime': api_start_ms,
@@ -94,8 +103,12 @@ def _fetch_events_chunked(client, range_start: datetime, range_end: datetime) ->
             next_token = response.get('nextToken')
             if not next_token:
                 break
+            if iteration % 3 == 2:
+                time.sleep(0.25)
 
         current_end = chunk_start
+        if chunk_count % 5 == 0:
+            time.sleep(0.5)
 
     print(f"✅ Requests: fetched {len(all_events)} events from {chunk_count} chunks")
     return all_events
@@ -121,6 +134,31 @@ def _get_cached_count(cache_key: str) -> Optional[int]:
         return None
     except Exception:
         return None
+
+
+def clear_stale_request_caches():
+    client = get_redis_client()
+    if client is None:
+        return
+    try:
+        keys = client.keys("requests:*")
+        if not keys:
+            return
+        stale = []
+        for key in keys:
+            key_str = key.decode() if isinstance(key, bytes) else key
+            val = client.get(key)
+            if val is not None:
+                count = json.loads(val)
+                if count == 0:
+                    ttl_remaining = client.ttl(key)
+                    if ttl_remaining > RETRY_TTL:
+                        stale.append(key)
+        if stale:
+            client.delete(*stale)
+            print(f"🗑️ Cleared {len(stale)} stale request cache entries with 0 count")
+    except Exception as e:
+        print(f"⚠️ Error clearing stale caches: {e}")
 
 
 def _set_cached_count(cache_key: str, count: int, ttl: int):
@@ -226,17 +264,30 @@ def get_requests_data(period: str = 'monthly', num_periods: int = 6) -> Dict:
 
     if uncached_indices:
         print(f"⚡ Requests ({period}): fetching {len(uncached_indices)} uncached period(s) from CloudWatch...")
-        for idx in uncached_indices:
+        for fetch_num, idx in enumerate(uncached_indices):
             spec = specs[idx]
+            failed = False
             try:
                 events = _fetch_events_for_range(spec['start'], spec['end'])
                 count_val = _count_unique_requests(events)
+                print(f"  📊 {spec['label']}: {count_val} unique requests from {len(events)} events")
             except Exception as e:
                 print(f"⚠️ Requests: failed to fetch {spec['label']}: {e}")
                 count_val = 0
-            ttl = COMPLETED_PERIOD_TTL if spec['is_complete'] else CURRENT_PERIOD_TTL
+                failed = True
+
+            if spec['is_complete'] and count_val > 0:
+                ttl = COMPLETED_PERIOD_TTL
+            elif spec['is_complete'] and (count_val == 0 or failed):
+                ttl = RETRY_TTL
+            else:
+                ttl = CURRENT_PERIOD_TTL
+
             _set_cached_count(spec['cache_key'], count_val, ttl)
             results[idx] = {'label': spec['label'], 'count': count_val, 'cached': False}
+
+            if fetch_num < len(uncached_indices) - 1:
+                time.sleep(1)
 
     counts = [r['count'] for r in results]
     return {

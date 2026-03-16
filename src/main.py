@@ -19,7 +19,7 @@ from src.database import get_tables, get_table_data
 from src.utils.helper import filter_uuid, extract_uuids_from_logs
 from src.traffic import get_intent_traffic_data
 from src.summary import fetch_summary_logs
-from src.requests import get_requests_data
+from src.requests import get_requests_data, clear_stale_request_caches
 
 
 def acquire_cache_lock(lock_name: str, timeout: int = 300) -> bool:
@@ -81,6 +81,17 @@ def warmup_cache_sync():
             except Exception as e:
                 print(f"  ⚠️ Failed to warm summary cache for {hours}h: {e}")
         
+        # Clear any stale 0-count request caches from previous failed fetches
+        clear_stale_request_caches()
+        
+        # Warm up requests cache (monthly — 6 months, then weekly — 12 weeks)
+        for period, count in [('monthly', 6), ('weekly', 12)]:
+            try:
+                print(f"  📦 Warming requests cache ({period}, {count} periods)...")
+                get_requests_data(period=period, num_periods=count)
+            except Exception as e:
+                print(f"  ⚠️ Failed to warm requests cache ({period}): {e}")
+        
         print("✅ Cache warmup complete!")
     finally:
         release_cache_lock("cache_warmup")
@@ -109,9 +120,12 @@ def periodic_cache_refresh():
         (336, CACHE_TTL_48H * 0.8),   # 14d summary
     ]
     
+    from src.requests import get_requests_data
+    
     # Track last refresh time for each range
     last_refresh = {hours: 0 for hours, _ in time_range_config}
     last_summary_refresh = {hours: 0 for hours, _ in summary_range_config}
+    last_requests_refresh = 0
     
     # Wait for initial warmup to complete + stagger workers
     import random
@@ -155,6 +169,20 @@ def periodic_cache_refresh():
                         print(f"  ⚠️ Failed to refresh {hours}h summary cache: {e}")
                     finally:
                         release_cache_lock(lock_name)
+        
+        # Refresh current-period requests cache every hour
+        if current_time - last_requests_refresh >= 3600:
+            lock_name = "refresh_requests"
+            if acquire_cache_lock(lock_name, timeout=600):
+                try:
+                    print("  🔄 Refreshing current-period requests cache...")
+                    for period, count in [('monthly', 1), ('weekly', 1), ('daily', 1)]:
+                        get_requests_data(period=period, num_periods=count)
+                    last_requests_refresh = current_time
+                except Exception as e:
+                    print(f"  ⚠️ Failed to refresh requests cache: {e}")
+                finally:
+                    release_cache_lock(lock_name)
         
         # Check every 30 seconds if any cache needs refresh
         time.sleep(30)
