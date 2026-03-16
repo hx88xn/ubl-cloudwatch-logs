@@ -371,7 +371,6 @@
             <div class="period-tabs">
                 <button class="period-tab active" data-period="monthly">Monthly</button>
                 <button class="period-tab" data-period="weekly">Weekly</button>
-                <button class="period-tab" data-period="daily">Daily</button>
             </div>
             <span class="period-label" style="margin-left:8px;">Show:</span>
             <select class="count-select" id="countSelect" onchange="reload()">
@@ -579,7 +578,7 @@
         }
 
         function updateSubtitle(data) {
-            const periodLabel = { monthly: 'month', weekly: 'week', daily: 'day' }[data.period];
+            const periodLabel = { monthly: 'month', weekly: 'week' }[data.period] || data.period;
             document.getElementById('chartSubtitle').textContent =
                 `${data.labels.length} ${periodLabel}s · ${data.total.toLocaleString()} total requests`;
         }
@@ -594,8 +593,8 @@
 
                 // Adjust default count per period
                 const countSelect = document.getElementById('countSelect');
-                const defaults = { monthly: '6', weekly: '12', daily: '12' };
-                countSelect.value = defaults[currentPeriod];
+                const defaults = { monthly: '6', weekly: '12' };
+                countSelect.value = defaults[currentPeriod] || '6';
 
                 fetchData();
             });

@@ -81,9 +81,6 @@ def warmup_cache_sync():
             except Exception as e:
                 print(f"  ⚠️ Failed to warm summary cache for {hours}h: {e}")
         
-        # Clear any stale 0-count request caches from previous failed fetches
-        clear_stale_request_caches()
-        
         # Warm up requests cache (monthly — 6 months, then weekly — 12 weeks)
         for period, count in [('monthly', 6), ('weekly', 12)]:
             try:
@@ -176,7 +173,7 @@ def periodic_cache_refresh():
             if acquire_cache_lock(lock_name, timeout=600):
                 try:
                     print("  🔄 Refreshing current-period requests cache...")
-                    for period, count in [('monthly', 1), ('weekly', 1), ('daily', 1)]:
+                    for period, count in [('monthly', 1), ('weekly', 1)]:
                         get_requests_data(period=period, num_periods=count)
                     last_requests_refresh = current_time
                 except Exception as e:
@@ -197,6 +194,9 @@ async def lifespan(app: FastAPI):
     """Startup and shutdown lifecycle events."""
     global _shutdown_flag
     _shutdown_flag = False
+    
+    # Immediately purge any stale 0-count request caches before serving traffic
+    clear_stale_request_caches()
     
     # Startup: warm cache in background thread
     warmup_thread = threading.Thread(target=warmup_cache_sync, daemon=True)
@@ -428,7 +428,7 @@ async def get_requests_endpoint(
             detail="Access denied. Admin access required."
         )
 
-    period = period if period in ('monthly', 'weekly', 'daily') else 'monthly'
+    period = period if period in ('monthly', 'weekly') else 'monthly'
     count = max(1, min(count, 24))
     return get_requests_data(period=period, num_periods=count)
 
