@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Requests Analytics</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e4e4e4;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            font-size: 24px;
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-text {
+            font-size: 20px;
+            font-weight: 700;
+            color: white;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .nav-btn {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            transform: translateY(-2px);
+        }
+
+        .logout-btn {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #ef4444;
+        }
+
+        .logout-btn:hover {
+            background: rgba(239, 68, 68, 0.3);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 32px;
+        }
+
+        .header {
+            margin-bottom: 32px;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Period tabs */
+        .period-section {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .period-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.6);
+            white-space: nowrap;
+        }
+
+        .period-tabs {
+            display: flex;
+            gap: 8px;
+        }
+
+        .period-tab {
+            padding: 10px 24px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .period-tab:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .period-tab.active {
+            background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+            border-color: transparent;
+            color: white;
+            box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+        }
+
+        .count-select {
+            padding: 10px 16px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: white;
+            border-radius: 10px;
+            font-size: 14px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .count-select option {
+            background: #1a1a2e;
+            color: white;
+        }
+
+        /* Summary cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .stat-card.total { border-left: 4px solid #06b6d4; }
+        .stat-card.peak  { border-left: 4px solid #10b981; }
+        .stat-card.avg   { border-left: 4px solid #f59e0b; }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .stat-card.total .stat-value { color: #06b6d4; }
+        .stat-card.peak  .stat-value { color: #10b981; }
+        .stat-card.avg   .stat-value { color: #f59e0b; }
+
+        .stat-label {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Chart */
+        .chart-container {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 24px;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 24px;
+        }
+
+        .chart-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: white;
+        }
+
+        .chart-subtitle {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 4px;
+        }
+
+        .cache-badge {
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #10b981;
+        }
+
+        .cache-badge.partial {
+            background: rgba(245, 158, 11, 0.15);
+            border-color: rgba(245, 158, 11, 0.3);
+            color: #f59e0b;
+        }
+
+        .cache-badge.fresh {
+            background: rgba(99, 102, 241, 0.15);
+            border-color: rgba(99, 102, 241, 0.3);
+            color: #818cf8;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 420px;
+            width: 100%;
+        }
+
+        /* Loading overlay */
+        .loading-overlay {
+            display: none;
+            position: absolute;
+            inset: 0;
+            background: rgba(22, 33, 62, 0.85);
+            border-radius: 12px;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 16px;
+            z-index: 10;
+        }
+
+        .loading-overlay.show {
+            display: flex;
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #06b6d4;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .loading-text {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: rgba(16, 185, 129, 0.9);
+            color: white;
+            padding: 14px 22px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            display: none;
+            font-size: 14px;
+            z-index: 1000;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .toast.show { display: block; }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 16px; }
+            .navbar { padding: 12px 16px; }
+            .header h1 { font-size: 24px; }
+            .chart-wrapper { height: 300px; }
+            .period-section { flex-direction: column; align-items: flex-start; gap: 12px; }
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="logo-section">
+            <div class="logo-icon">📊</div>
+            <span class="logo-text">Requests</span>
+        </div>
+        <div class="nav-buttons">
+            <a href="/traffic" class="nav-btn">📈 Traffic</a>
+            <a href="/dashboard" class="nav-btn">🖥️ Dashboard</a>
+            <button class="nav-btn logout-btn" onclick="logout()">🚪 Logout</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header">
+            <h1>📊 Requests</h1>
+        </div>
+
+        <div class="period-section">
+            <span class="period-label">Group by:</span>
+            <div class="period-tabs">
+                <button class="period-tab active" data-period="monthly">Monthly</button>
+                <button class="period-tab" data-period="weekly">Weekly</button>
+                <button class="period-tab" data-period="daily">Daily</button>
+            </div>
+            <span class="period-label" style="margin-left:8px;">Show:</span>
+            <select class="count-select" id="countSelect" onchange="reload()">
+                <option value="6">6 periods</option>
+                <option value="12">12 periods</option>
+                <option value="24">24 periods</option>
+            </select>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card total">
+                <div class="stat-value" id="statTotal">—</div>
+                <div class="stat-label">Total Requests</div>
+            </div>
+            <div class="stat-card peak">
+                <div class="stat-value" id="statPeak">—</div>
+                <div class="stat-label">Peak Period</div>
+            </div>
+            <div class="stat-card avg">
+                <div class="stat-value" id="statAvg">—</div>
+                <div class="stat-label">Avg per Period</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <div class="chart-header">
+                <div>
+                    <div class="chart-title">Requests per Period</div>
+                    <div class="chart-subtitle" id="chartSubtitle">Loading…</div>
+                </div>
+                <div id="cacheBadge" class="cache-badge" style="display:none;"></div>
+            </div>
+            <div style="position:relative;">
+                <div class="chart-wrapper">
+                    <canvas id="requestsChart"></canvas>
+                </div>
+                <div class="loading-overlay" id="loadingOverlay">
+                    <div class="spinner"></div>
+                    <div class="loading-text" id="loadingText">Fetching data from CloudWatch…</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const token = localStorage.getItem('access_token');
+        if (!token) window.location.href = '/login';
+
+        let chart = null;
+        let currentPeriod = 'monthly';
+        let abortCtrl = null;
+
+        async function checkAccess() {
+            const res = await fetch('/api/user/me', { headers: { Authorization: `Bearer ${token}` } });
+            if (res.status === 401) { localStorage.removeItem('access_token'); window.location.href = '/login'; return false; }
+            if (res.ok) {
+                const user = await res.json();
+                if (user.role !== 'admin-ubl') {
+                    showToast('Access denied. Admin access required.', 'error');
+                    setTimeout(() => window.location.href = '/dashboard', 1500);
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function showLoading(msg = 'Fetching from CloudWatch…') {
+            document.getElementById('loadingText').textContent = msg;
+            document.getElementById('loadingOverlay').classList.add('show');
+            document.getElementById('statTotal').textContent = '…';
+            document.getElementById('statPeak').textContent = '…';
+            document.getElementById('statAvg').textContent = '…';
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.remove('show');
+        }
+
+        async function fetchData() {
+            if (abortCtrl) abortCtrl.abort();
+            abortCtrl = new AbortController();
+
+            const count = document.getElementById('countSelect').value;
+            showLoading(`Fetching ${currentPeriod} data…`);
+
+            try {
+                const res = await fetch(`/api/requests?period=${currentPeriod}&count=${count}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                    signal: abortCtrl.signal
+                });
+
+                if (res.status === 401) { localStorage.removeItem('access_token'); window.location.href = '/login'; return; }
+                if (res.status === 403) { showToast('Access denied.', 'error'); setTimeout(() => window.location.href = '/dashboard', 1500); return; }
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+                const data = await res.json();
+                renderChart(data);
+                updateStats(data);
+                updateCacheBadge(data.cached_flags);
+                updateSubtitle(data);
+                showToast('Data loaded');
+
+            } catch (err) {
+                if (err.name === 'AbortError') return;
+                console.error(err);
+                showToast('Error fetching data', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function renderChart(data) {
+            const ctx = document.getElementById('requestsChart').getContext('2d');
+
+            if (chart) chart.destroy();
+
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'Requests',
+                        data: data.counts,
+                        backgroundColor: data.counts.map((_, i) =>
+                            i === data.counts.indexOf(Math.max(...data.counts))
+                                ? 'rgba(6, 182, 212, 0.7)'
+                                : 'rgba(59, 130, 246, 0.45)'
+                        ),
+                        borderColor: data.counts.map((_, i) =>
+                            i === data.counts.indexOf(Math.max(...data.counts))
+                                ? '#06b6d4'
+                                : '#3b82f6'
+                        ),
+                        borderWidth: 2,
+                        borderRadius: 6,
+                        borderSkipped: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(0,0,0,0.85)',
+                            titleColor: '#fff',
+                            bodyColor: '#e4e4e4',
+                            padding: 12,
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: ctx => ` ${ctx.parsed.y.toLocaleString()} requests`,
+                                afterLabel: ctx => data.cached_flags[ctx.dataIndex] ? ' (cached)' : ' (live)'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: 'rgba(255,255,255,0.6)', font: { size: 12 } }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: {
+                                color: 'rgba(255,255,255,0.6)',
+                                font: { size: 12 },
+                                callback: v => v.toLocaleString()
+                            },
+                            title: {
+                                display: true,
+                                text: 'Number of Requests',
+                                color: 'rgba(255,255,255,0.5)',
+                                font: { size: 12 }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateStats(data) {
+            document.getElementById('statTotal').textContent = data.total.toLocaleString();
+            document.getElementById('statPeak').textContent = data.peak.toLocaleString();
+            document.getElementById('statAvg').textContent = data.average.toLocaleString();
+        }
+
+        function updateCacheBadge(cachedFlags) {
+            const badge = document.getElementById('cacheBadge');
+            const allCached = cachedFlags.every(Boolean);
+            const noneCached = cachedFlags.every(f => !f);
+            badge.style.display = 'block';
+            if (allCached) {
+                badge.className = 'cache-badge';
+                badge.textContent = 'All cached';
+            } else if (noneCached) {
+                badge.className = 'cache-badge fresh';
+                badge.textContent = 'Live data';
+            } else {
+                const cachedCount = cachedFlags.filter(Boolean).length;
+                badge.className = 'cache-badge partial';
+                badge.textContent = `${cachedCount}/${cachedFlags.length} cached`;
+            }
+        }
+
+        function updateSubtitle(data) {
+            const periodLabel = { monthly: 'month', weekly: 'week', daily: 'day' }[data.period];
+            document.getElementById('chartSubtitle').textContent =
+                `${data.labels.length} ${periodLabel}s · ${data.total.toLocaleString()} total requests`;
+        }
+
+        function reload() { fetchData(); }
+
+        document.querySelectorAll('.period-tab').forEach(btn => {
+            btn.addEventListener('click', function () {
+                document.querySelectorAll('.period-tab').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentPeriod = this.dataset.period;
+
+                // Adjust default count per period
+                const countSelect = document.getElementById('countSelect');
+                const defaults = { monthly: '6', weekly: '12', daily: '12' };
+                countSelect.value = defaults[currentPeriod];
+
+                fetchData();
+            });
+        });
+
+        function logout() {
+            localStorage.removeItem('access_token');
+            window.location.href = '/login';
+        }
+
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.style.background = type === 'error' ? 'rgba(239,68,68,0.9)' : 'rgba(16,185,129,0.9)';
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        async function init() {
+            const ok = await checkAccess();
+            if (ok) fetchData();
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

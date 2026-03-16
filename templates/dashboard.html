@@ -693,6 +693,10 @@
                     onclick="window.location.href='/traffic'">
                     📈 Traffic
                 </button>
+                <button class="btn btn-primary" id="requestsBtn" style="display: none;"
+                    onclick="window.location.href='/requests'">
+                    📊 Requests
+                </button>
                 <button class="btn btn-primary" onclick="window.location.href='/summary'">
                     📋 Summary
                 </button>
@@ -760,10 +764,11 @@
                         window.location.href = '/app-logs';
                         return false;
                     }
-                    // Show Traffic button for admin-ubl only
                     if (userData.role === 'admin-ubl') {
                         const trafficBtn = document.getElementById('trafficBtn');
                         if (trafficBtn) trafficBtn.style.display = 'inline-flex';
+                        const requestsBtn = document.getElementById('requestsBtn');
+                        if (requestsBtn) requestsBtn.style.display = 'inline-flex';
                     }
                 } else if (response.status === 401) {
                     localStorage.removeItem('access_token');
