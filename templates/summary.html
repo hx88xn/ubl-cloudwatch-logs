@@ -680,6 +680,13 @@
                     <input type="text" id="searchInput" placeholder="Search by transcription or intent...">
                 </div>
                 <div class="filter-group">
+                    <label>📡 Log Source</label>
+                    <select id="sourceSelect">
+                        <option value="cloudwatch" selected>AWS CloudWatch</option>
+                        <option value="grafana">Grafana Loki</option>
+                    </select>
+                </div>
+                <div class="filter-group">
                     <label>⏰ Time Range</label>
                     <select id="timeRangeSelect">
                         <option value="1">Last 1 hour</option>
@@ -812,6 +819,7 @@
 
         async function fetchSummary() {
             const hours = parseInt(customHours || document.getElementById('timeRangeSelect').value);
+            const source = document.getElementById('sourceSelect').value || 'cloudwatch';
             showLoading();
 
             try {
@@ -821,7 +829,7 @@
                 // This prevents timeouts by using CloudWatch filter patterns
                 if (hours >= 168) {
                     isMonthView = true;
-                    response = await fetch(`/api/summary?hours=${hours}`, {
+                    response = await fetch(`/api/summary?hours=${hours}&source=${source}`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
 
@@ -869,7 +877,7 @@
                 } else {
                     // For shorter ranges (<7 days), fetch all logs and process client-side
                     isMonthView = false;
-                    response = await fetch(`/api/logs?hours=${hours}&limit=100000&page_size=100000`, {
+                    response = await fetch(`/api/logs?hours=${hours}&limit=100000&page_size=100000&source=${source}`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
 
@@ -1139,7 +1147,8 @@
 
                 try {
                     const hours = customHours || document.getElementById('timeRangeSelect').value;
-                    const response = await fetch(`/api/logs?hours=${hours}&uuid=${uuid}&page_size=50000`, {
+                    const source = document.getElementById('sourceSelect').value || 'cloudwatch';
+                    const response = await fetch(`/api/logs?hours=${hours}&uuid=${uuid}&page_size=50000&source=${source}`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
 
@@ -1230,6 +1239,11 @@
                 customHours = null;
                 fetchSummary();
             }
+        });
+
+        document.getElementById('sourceSelect').addEventListener('change', function () {
+            customHours = null;
+            fetchSummary();
         });
         document.getElementById('searchInput').addEventListener('input', () => {
             clearTimeout(window.searchTimer);

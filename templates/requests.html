@@ -368,6 +368,11 @@
         </div>
 
         <div class="period-section">
+            <span class="period-label">Log Source:</span>
+            <select class="count-select" id="sourceSelect" onchange="reload()" style="margin-right: 16px;">
+                <option value="cloudwatch" selected>AWS CloudWatch</option>
+                <option value="grafana">Grafana Loki</option>
+            </select>
             <span class="period-label">Group by:</span>
             <div class="period-tabs">
                 <button class="period-tab active" data-period="monthly">Monthly</button>
@@ -457,10 +462,11 @@
             abortCtrl = new AbortController();
 
             const count = document.getElementById('countSelect').value;
+            const source = document.getElementById('sourceSelect').value || 'cloudwatch';
             showLoading(`Fetching ${currentPeriod} data…`);
 
             try {
-                const res = await fetch(`/api/requests?period=${currentPeriod}&count=${count}`, {
+                const res = await fetch(`/api/requests?period=${currentPeriod}&count=${count}&source=${source}`, {
                     headers: { Authorization: `Bearer ${token}` },
                     signal: abortCtrl.signal
                 });

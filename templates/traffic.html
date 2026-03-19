@@ -507,15 +507,26 @@
         </div>
 
         <div class="time-range-section">
-            <div class="time-range-label">⏰ Select Time Range</div>
-            <div class="time-range-buttons">
-                <button class="time-btn active" data-hours="1">Last 1 Hour</button>
-                <button class="time-btn" data-hours="6">Last 6 Hours</button>
-                <button class="time-btn" data-hours="24">Last 24 Hours</button>
-                <button class="time-btn" data-hours="48">Last 2 Days</button>
-                <button class="time-btn" data-hours="168">Last 7 Days</button>
-                <button class="time-btn" data-hours="720">Last 1 Month</button>
-                <button class="time-btn" data-hours="custom">⏱️ Custom</button>
+            <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+                <div>
+                    <div class="time-range-label">📡 Log Source</div>
+                    <select id="sourceSelect" style="padding: 10px 14px; background: #2d3748; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; color: white; font-size: 14px; margin-bottom: 12px; height: 44px; outline: none; transition: 0.3s;" onchange="fetchTrafficData(currentHours)">
+                        <option value="cloudwatch" selected>AWS CloudWatch</option>
+                        <option value="grafana">Grafana Loki</option>
+                    </select>
+                </div>
+                <div>
+                    <div class="time-range-label">⏰ Select Time Range</div>
+                    <div class="time-range-buttons">
+                        <button class="time-btn active" data-hours="1">Last 1 Hour</button>
+                        <button class="time-btn" data-hours="6">Last 6 Hours</button>
+                        <button class="time-btn" data-hours="24">Last 24 Hours</button>
+                        <button class="time-btn" data-hours="48">Last 2 Days</button>
+                        <button class="time-btn" data-hours="168">Last 7 Days</button>
+                        <button class="time-btn" data-hours="720">Last 1 Month</button>
+                        <button class="time-btn" data-hours="custom">⏱️ Custom</button>
+                    </div>
+                </div>
             </div>
             <div class="custom-range-container" id="customRangeContainer">
                 <span class="custom-range-label">⏱️ Custom Range:</span>
@@ -674,10 +685,11 @@
             const signal = currentAbortController.signal;
 
             currentHours = hours;
+            const source = document.getElementById('sourceSelect').value || 'cloudwatch';
             showLoading();
 
             try {
-                const response = await fetch(`/api/traffic?hours=${hours}`, {
+                const response = await fetch(`/api/traffic?hours=${hours}&source=${source}`, {
                     headers: { 'Authorization': `Bearer ${token}` },
                     signal: signal
                 });

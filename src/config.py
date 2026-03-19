@@ -9,6 +9,11 @@ AWS_REGION = os.getenv('AWS_REGION', 'eu-west-1')
 LOG_GROUP_NAME = os.getenv('LOG_GROUP_NAME', '/aws/ecs/fastapi-fortvoice-ubl-prod')
 S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', 'fastapi-fortvoice-ubl-prod')
 
+# Grafana Loki Configuration
+GRAFANA_CLOUD_LOKI_URL = os.getenv('GRAFANA_CLOUD_LOKI_URL', '')
+GRAFANA_CLOUD_LOKI_USER = os.getenv('GRAFANA_CLOUD_LOKI_USER', '')
+GRAFANA_CLOUD_LOKI_TOKEN = os.getenv('GRAFANA_CLOUD_LOKI_TOKEN', '')
+
 # Database Configuration
 DB_HOST = os.getenv('DB_HOST', 'fastapi-fortvoice-ubl-prod-db-0.cxyk8ukc4zw1.eu-west-1.rds.amazonaws.com')
 DB_PORT = int(os.getenv('DB_PORT', '3306'))
