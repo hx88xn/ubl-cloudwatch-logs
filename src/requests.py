@@ -8,7 +8,6 @@ from typing import Dict, List, Optional
 from botocore.config import Config as BotoConfig
 from src.config import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, LOG_GROUP_NAME
 from src.cache import get_redis_client
-from src.logs import fetch_from_grafana_range
 
 PKT = timezone(timedelta(hours=5))
 
@@ -16,6 +15,7 @@ FINAL_RESPONSE_FILTER = '"Final Response:"'
 UUID_PATTERN = re.compile(r'\[([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\]')
 
 COMPLETED_PERIOD_TTL = 365 * 24 * 3600
+CURRENT_PERIOD_TTL = 3600
 RETRY_TTL = 3600
 
 _cw_retry_config = BotoConfig(
@@ -45,10 +45,7 @@ def get_log_retention_days() -> Optional[int]:
         return None
 
 
-def _fetch_events_for_range(start_dt: datetime, end_dt: datetime, source: str = 'cloudwatch') -> List[dict]:
-    if source == 'grafana':
-        return fetch_from_grafana_range(start_dt, end_dt, filter_pattern=FINAL_RESPONSE_FILTER)
-        
+def _fetch_events_for_range(start_dt: datetime, end_dt: datetime) -> List[dict]:
     client = _get_cloudwatch_client()
     total_hours = (end_dt - start_dt).total_seconds() / 3600
 
@@ -186,7 +183,7 @@ def _set_cached_count(cache_key: str, count: int, ttl: int):
         print(f"⚠️ Cache write error for {cache_key}: {e}")
 
 
-def _build_monthly_specs(now_pkt: datetime, num_periods: int, source: str = 'cloudwatch') -> List[dict]:
+def _build_monthly_specs(now_pkt: datetime, num_periods: int) -> List[dict]:
     specs = []
     for i in range(num_periods - 1, -1, -1):
         total_months = now_pkt.year * 12 + now_pkt.month - 1 - i
@@ -201,7 +198,7 @@ def _build_monthly_specs(now_pkt: datetime, num_periods: int, source: str = 'clo
 
         specs.append({
             'label': datetime(year, month, 1).strftime('%b %Y'),
-            'cache_key': f"requests_{source}:monthly:{year}-{month:02d}",
+            'cache_key': f"requests:monthly:{year}-{month:02d}",
             'start': start,
             'end': end,
             'is_complete': not is_current,
@@ -209,7 +206,7 @@ def _build_monthly_specs(now_pkt: datetime, num_periods: int, source: str = 'clo
     return specs
 
 
-def _build_weekly_specs(now_pkt: datetime, num_periods: int, source: str = 'cloudwatch') -> List[dict]:
+def _build_weekly_specs(now_pkt: datetime, num_periods: int) -> List[dict]:
     specs = []
     week_start = (now_pkt - timedelta(days=now_pkt.weekday())).replace(
         hour=0, minute=0, second=0, microsecond=0
@@ -225,7 +222,7 @@ def _build_weekly_specs(now_pkt: datetime, num_periods: int, source: str = 'clou
         iso_year, iso_week, _ = start.isocalendar()
         specs.append({
             'label': f"W{iso_week:02d} {iso_year}",
-            'cache_key': f"requests_{source}:weekly:{iso_year}-W{iso_week:02d}",
+            'cache_key': f"requests:weekly:{iso_year}-W{iso_week:02d}",
             'start': start,
             'end': end,
             'is_complete': not is_current,
@@ -254,21 +251,21 @@ def _build_daily_specs(now_pkt: datetime, num_periods: int) -> List[dict]:
     return specs
 
 
-def get_requests_data(period: str = 'monthly', num_periods: int = 6, source: str = 'cloudwatch') -> Dict:
+def get_requests_data(period: str = 'monthly', num_periods: int = 6) -> Dict:
     now_pkt = datetime.now(PKT)
 
-    retention_days = get_log_retention_days() if source != 'grafana' else 30 # Grafana typically 30 days
+    retention_days = get_log_retention_days()
     if retention_days:
         max_lookback = now_pkt - timedelta(days=retention_days)
-        print(f"📋 {source.title()} retention: {retention_days} days (logs available from {max_lookback.strftime('%Y-%m-%d')})")
+        print(f"📋 CloudWatch retention: {retention_days} days (logs available from {max_lookback.strftime('%Y-%m-%d')})")
     else:
         max_lookback = None
-        print(f"📋 {source.title()} retention: unlimited (or unable to determine)")
+        print("📋 CloudWatch retention: unlimited (or unable to determine)")
 
     if period == 'monthly':
-        specs = _build_monthly_specs(now_pkt, num_periods, source)
+        specs = _build_monthly_specs(now_pkt, num_periods)
     elif period == 'weekly':
-        specs = _build_weekly_specs(now_pkt, num_periods, source)
+        specs = _build_weekly_specs(now_pkt, num_periods)
     else:
         raise ValueError(f"Invalid period '{period}'. Must be monthly or weekly.")
 
@@ -296,24 +293,21 @@ def get_requests_data(period: str = 'monthly', num_periods: int = 6, source: str
     uncached_indices = []
 
     for i, spec in enumerate(specs):
-        if spec['is_complete']:
-            cached_val = _get_cached_count(spec['cache_key'])
-            if cached_val is not None:
-                results[i] = {'label': spec['label'], 'count': cached_val, 'cached': True,
-                              'events_found': None, 'error': None}
-            else:
-                uncached_indices.append(i)
+        cached_val = _get_cached_count(spec['cache_key'])
+        if cached_val is not None:
+            results[i] = {'label': spec['label'], 'count': cached_val, 'cached': True,
+                          'events_found': None, 'error': None}
         else:
             uncached_indices.append(i)
 
     if uncached_indices:
-        print(f"⚡ Requests ({period}): fetching {len(uncached_indices)} uncached period(s) from {source}...")
+        print(f"⚡ Requests ({period}): fetching {len(uncached_indices)} uncached period(s) from CloudWatch...")
         for fetch_num, idx in enumerate(uncached_indices):
             spec = specs[idx]
             error_msg = None
             events_found = 0
             try:
-                events = _fetch_events_for_range(spec['start'], spec['end'], source=source)
+                events = _fetch_events_for_range(spec['start'], spec['end'])
                 events_found = len(events)
                 count_val = _count_unique_requests(events)
                 print(f"  📊 {spec['label']}: {count_val} unique requests from {events_found} events "
@@ -325,12 +319,12 @@ def get_requests_data(period: str = 'monthly', num_periods: int = 6, source: str
 
             if spec['is_complete'] and count_val > 0:
                 ttl = COMPLETED_PERIOD_TTL
-                _set_cached_count(spec['cache_key'], count_val, ttl)
             elif spec['is_complete']:
                 ttl = RETRY_TTL
-                _set_cached_count(spec['cache_key'], count_val, ttl)
             else:
-                pass
+                ttl = CURRENT_PERIOD_TTL
+
+            _set_cached_count(spec['cache_key'], count_val, ttl)
             results[idx] = {'label': spec['label'], 'count': count_val, 'cached': False,
                             'events_found': events_found, 'error': error_msg}
 

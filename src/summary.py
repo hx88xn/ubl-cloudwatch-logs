@@ -15,7 +15,6 @@ from src.cache import (
     set_cached_logs,
     generate_cache_key
 )
-from src.logs import _fetch_from_grafana
 
 # Regex patterns to extract target fields
 UUID_PATTERN = re.compile(r'\[([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\]')
@@ -247,23 +246,20 @@ def _process_events_to_summaries(all_events: List[dict]) -> Dict:
     }
 
 
-def fetch_summary_logs(hours: int = 1, allow_slow_fetch: bool = True, source: str = 'cloudwatch') -> Dict:
+def fetch_summary_logs(hours: int = 1, allow_slow_fetch: bool = True) -> Dict:
     """Fetch and parse summary logs, grouping by UUID."""
     
     # For short time ranges (<=6h), always fetch fresh (no caching)
     if hours <= 6:
-        print(f"⚡ Fetching fresh {hours}h summary logs from {source} (no cache)...")
+        print(f"⚡ Fetching fresh {hours}h summary logs from CloudWatch (no cache)...")
         try:
-            if source == 'grafana':
-                all_events = _fetch_from_grafana(hours, filter_pattern=SUMMARY_LOGS_FILTER)
-            else:
-                all_events = _fetch_summary_from_cloudwatch(hours)
+            all_events = _fetch_summary_from_cloudwatch(hours)
             return _process_events_to_summaries(all_events)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error fetching summary logs: {str(e)}")
     
     # For longer time ranges (>6 hours), cache the PROCESSED summaries (not raw events)
-    cache_key = generate_cache_key(f"summary_processed_{source}", hours, None)
+    cache_key = generate_cache_key("summary_processed", hours, None)
     cached_result = get_cached_logs(cache_key)
     if cached_result is not None:
         print(f"✅ Cache HIT: {cache_key} ({cached_result.get('total', 0)} summaries)")
@@ -280,12 +276,9 @@ def fetch_summary_logs(hours: int = 1, allow_slow_fetch: bool = True, source: st
             'message': f'Cache is warming up for {hours // 24} day data. Please retry in 2-3 minutes.'
         }
     
-    print(f"⚡ Cache MISS: {cache_key} - fetching from {source}...")
+    print(f"⚡ Cache MISS: {cache_key} - fetching from CloudWatch...")
     try:
-        if source == 'grafana':
-            all_events = _fetch_from_grafana(hours, filter_pattern=SUMMARY_LOGS_FILTER)
-        else:
-            all_events = _fetch_summary_from_cloudwatch(hours)
+        all_events = _fetch_summary_from_cloudwatch(hours)
         result = _process_events_to_summaries(all_events)
         
         # Cache the processed result (much smaller than raw events)

@@ -3,16 +3,11 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta
 from typing import Optional, List
 import boto3
-import requests
-from requests.auth import HTTPBasicAuth
 from src.config import (
     AWS_ACCESS_KEY_ID, 
     AWS_SECRET_ACCESS_KEY, 
     AWS_REGION, 
-    LOG_GROUP_NAME,
-    GRAFANA_CLOUD_LOKI_URL,
-    GRAFANA_CLOUD_LOKI_USER,
-    GRAFANA_CLOUD_LOKI_TOKEN
+    LOG_GROUP_NAME
 )
 from src.cache import (
     get_cached_logs,
@@ -228,68 +223,6 @@ def _fetch_logs_chunked(client, range_start: datetime, range_end: datetime, filt
     
     return all_events
 
-def _fetch_from_grafana(hours: int, filter_pattern: Optional[str] = None) -> List[dict]:
-    """Fetch logs from Grafana Loki HTTP API"""
-    now = datetime.now()
-    if hours >= 24:
-        days_back = hours // 24
-        range_start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days_back)
-    else:
-        range_start = now - timedelta(hours=hours)
-        
-    return fetch_from_grafana_range(range_start, now, filter_pattern)
-
-def fetch_from_grafana_range(start_dt: datetime, end_dt: datetime, filter_pattern: Optional[str] = None) -> List[dict]:
-    if not all([GRAFANA_CLOUD_LOKI_URL, GRAFANA_CLOUD_LOKI_USER, GRAFANA_CLOUD_LOKI_TOKEN]):
-        print("⚠️ Warning: Grafana Loki credentials missing")
-        return []
-        
-    start_ns = int(start_dt.timestamp() * 1e9)
-    end_ns = int(end_dt.timestamp() * 1e9)
-    
-    query = '{service="fortvoice-api"}'
-    if filter_pattern == APP_LOGS_FILTER_PATTERN:
-        query += ' |~ "(?i)Beneficiaries:|Final Response:|Phone contacts:|Bill types:"'
-    elif filter_pattern:
-        # Basic fallback for other CloudWatch syntax
-        clean_pattern = filter_pattern.replace('?"', '').replace('" ?', '|').replace('"', '')
-        query += f' |~ "(?i){clean_pattern}"'
-        
-    params = {
-        'query': query,
-        'start': start_ns,
-        'end': end_ns,
-        'limit': 5000,
-        'direction': 'backward'
-    }
-    
-    try:
-        response = requests.get(
-            f"{GRAFANA_CLOUD_LOKI_URL.rstrip('/')}/loki/api/v1/query_range",
-            params=params,
-            auth=HTTPBasicAuth(GRAFANA_CLOUD_LOKI_USER, GRAFANA_CLOUD_LOKI_TOKEN),
-            timeout=30
-        )
-        response.raise_for_status()
-        data = response.json()
-        
-        all_events = []
-        for stream_result in data.get('data', {}).get('result', []):
-            for value in stream_result.get('values', []):
-                ts_ns = int(value[0])
-                msg = value[1]
-                all_events.append({
-                    'timestamp': ts_ns // 1_000_000,
-                    'message': msg
-                })
-        
-        all_events.sort(key=lambda x: x['timestamp'], reverse=True)
-        return all_events
-        
-    except Exception as e:
-        print(f"⚠️ Error fetching from Grafana Loki: {e}")
-        return []
-
 def _format_events(events: List[dict]) -> List[dict]:
     formatted = []
     for event in events:
@@ -305,17 +238,13 @@ def fetch_logs(
     limit: int = 500,
     search_query: Optional[str] = None,
     page: int = 1,
-    page_size: int = 50,
-    source: str = 'cloudwatch'
+    page_size: int = 50
 ):
     # For short time ranges (<=6h), always fetch fresh (no caching)
     if hours <= 6:
-        print(f"⚡ Fetching fresh {hours}h logs from {source} (no cache)...")
+        print(f"⚡ Fetching fresh {hours}h logs from CloudWatch (no cache)...")
         try:
-            if source == 'grafana':
-                all_events = _fetch_from_grafana(hours)
-            else:
-                all_events = _fetch_from_cloudwatch(hours)
+            all_events = _fetch_from_cloudwatch(hours)
             
             # Filter out unwanted log messages
             all_events = [
@@ -335,18 +264,15 @@ def fetch_logs(
     # For longer time ranges (>6 hours), use caching
     elif not search_query:
         # Generate cache key
-        cache_key = generate_cache_key(f"dashboard_{source}", hours, None)
+        cache_key = generate_cache_key("dashboard", hours, None)
         cached_events = get_cached_logs(cache_key)
         if cached_events is not None:
             print(f"✅ Cache HIT: {cache_key} ({len(cached_events)} logs)")
             all_events = cached_events
         else:
-            print(f"⚡ Cache MISS: {cache_key} - fetching from {source}...")
+            print(f"⚡ Cache MISS: {cache_key} - fetching from CloudWatch...")
             try:
-                if source == 'grafana':
-                    all_events = _fetch_from_grafana(hours)
-                else:
-                    all_events = _fetch_from_cloudwatch(hours)
+                all_events = _fetch_from_cloudwatch(hours)
                 
                 # Filter out unwanted log messages
                 all_events = [
@@ -361,19 +287,16 @@ def fetch_logs(
                 raise HTTPException(status_code=500, detail=f"Error fetching logs: {str(e)}")
     else:
         # For search queries with hours > 1, first try cache without search
-        base_cache_key = generate_cache_key(f"dashboard_{source}", hours, None)
+        base_cache_key = generate_cache_key("dashboard", hours, None)
         cached_events = get_cached_logs(base_cache_key)
         
         if cached_events is not None:
             print(f"✅ Cache HIT (base): {base_cache_key}")
             all_events = cached_events
         else:
-            print(f"⚡ Cache MISS: fetching from {source} for search...")
+            print(f"⚡ Cache MISS: fetching from CloudWatch for search...")
             try:
-                if source == 'grafana':
-                    all_events = _fetch_from_grafana(hours)
-                else:
-                    all_events = _fetch_from_cloudwatch(hours)
+                all_events = _fetch_from_cloudwatch(hours)
                 
                 # Filter out unwanted log messages
                 all_events = [
@@ -439,34 +362,27 @@ def fetch_app_logs(
     hours: int = 1,
     limit: int = 500,
     page: int = 1,
-    page_size: int = 50,
-    source: str = 'cloudwatch'
+    page_size: int = 50
 ):
     # For short time ranges (<=6h), always fetch fresh (no caching)
     if hours <= 6:
-        print(f"⚡ Fetching fresh {hours}h app logs from {source} (no cache)...")
+        print(f"⚡ Fetching fresh {hours}h app logs from CloudWatch (no cache)...")
         try:
-            if source == 'grafana':
-                app_events = _fetch_from_grafana(hours, filter_pattern=APP_LOGS_FILTER_PATTERN)
-            else:
-                app_events = _fetch_from_cloudwatch(hours, filter_pattern=APP_LOGS_FILTER_PATTERN)
+            app_events = _fetch_from_cloudwatch(hours, filter_pattern=APP_LOGS_FILTER_PATTERN)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error fetching app logs: {str(e)}")
     else:
         # For longer time ranges (>6 hours), use caching
-        cache_key = generate_cache_key(f"app_{source}", hours, None)
+        cache_key = generate_cache_key("app", hours, None)
         
         cached_events = get_cached_logs(cache_key)
         if cached_events is not None:
             print(f"✅ Cache HIT: {cache_key} ({len(cached_events)} logs)")
             app_events = cached_events
         else:
-            print(f"⚡ Cache MISS: {cache_key} - fetching from {source} with server-side filter...")
+            print(f"⚡ Cache MISS: {cache_key} - fetching from CloudWatch with server-side filter...")
             try:
-                if source == 'grafana':
-                    app_events = _fetch_from_grafana(hours, filter_pattern=APP_LOGS_FILTER_PATTERN)
-                else:
-                    app_events = _fetch_from_cloudwatch(hours, filter_pattern=APP_LOGS_FILTER_PATTERN)
+                app_events = _fetch_from_cloudwatch(hours, filter_pattern=APP_LOGS_FILTER_PATTERN)
                 
                 # Cache the app logs data
                 set_cached_logs(cache_key, app_events, hours)

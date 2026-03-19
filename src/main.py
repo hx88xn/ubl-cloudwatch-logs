@@ -63,34 +63,31 @@ def warmup_cache_sync():
         print("🔥 Starting cache warmup (this worker acquired the lock)...")
         
         for hours in time_ranges:
-            for source in ['cloudwatch', 'grafana']:
-                try:
-                    print(f"  📦 Warming cache for {hours}h dashboard logs ({source})...")
-                    fetch_logs(hours=hours, limit=10000, page=1, page_size=10000, source=source)
-                    
-                    print(f"  📦 Warming cache for {hours}h app logs ({source})...")
-                    fetch_app_logs(hours=hours, limit=10000, page=1, page_size=10000, source=source)
-                    
-                except Exception as e:
-                    print(f"  ⚠️ Failed to warm cache for {hours}h ({source}): {e}")
+            try:
+                print(f"  📦 Warming cache for {hours}h dashboard logs...")
+                fetch_logs(hours=hours, limit=10000, page=1, page_size=10000)
+                
+                print(f"  📦 Warming cache for {hours}h app logs...")
+                fetch_app_logs(hours=hours, limit=10000, page=1, page_size=10000)
+                
+            except Exception as e:
+                print(f"  ⚠️ Failed to warm cache for {hours}h: {e}")
         
         # Warm up summary cache for large time ranges
         for hours in summary_ranges:
-            for source in ['cloudwatch', 'grafana']:
-                try:
-                    print(f"  📦 Warming cache for {hours}h summary logs ({source})...")
-                    fetch_summary_logs(hours=hours, source=source)
-                except Exception as e:
-                    print(f"  ⚠️ Failed to warm summary cache for {hours}h ({source}): {e}")
+            try:
+                print(f"  📦 Warming cache for {hours}h summary logs...")
+                fetch_summary_logs(hours=hours)
+            except Exception as e:
+                print(f"  ⚠️ Failed to warm summary cache for {hours}h: {e}")
         
         # Warm up requests cache (monthly — 6 months, then weekly — 12 weeks)
         for period, count in [('monthly', 6), ('weekly', 12)]:
-            for source in ['cloudwatch', 'grafana']:
-                try:
-                    print(f"  📦 Warming requests cache ({period}, {count} periods, {source})...")
-                    get_requests_data(period=period, num_periods=count, source=source)
-                except Exception as e:
-                    print(f"  ⚠️ Failed to warm requests cache ({period}) ({source}): {e}")
+            try:
+                print(f"  📦 Warming requests cache ({period}, {count} periods)...")
+                get_requests_data(period=period, num_periods=count)
+            except Exception as e:
+                print(f"  ⚠️ Failed to warm requests cache ({period}): {e}")
         
         print("✅ Cache warmup complete!")
     finally:
@@ -120,9 +117,12 @@ def periodic_cache_refresh():
         (336, CACHE_TTL_48H * 0.8),   # 14d summary
     ]
     
+    from src.requests import get_requests_data
+    
     # Track last refresh time for each range
     last_refresh = {hours: 0 for hours, _ in time_range_config}
     last_summary_refresh = {hours: 0 for hours, _ in summary_range_config}
+    last_requests_refresh = 0
     
     # Wait for initial warmup to complete + stagger workers
     import random
@@ -141,9 +141,8 @@ def periodic_cache_refresh():
                 if acquire_cache_lock(lock_name, timeout=300):
                     try:
                         print(f"  🔄 Refreshing {hours}h cache (TTL-based, every {int(refresh_interval)}s)...")
-                        for source in ['cloudwatch', 'grafana']:
-                            fetch_logs(hours=hours, limit=10000, page=1, page_size=10000, source=source)
-                            fetch_app_logs(hours=hours, limit=10000, page=1, page_size=10000, source=source)
+                        fetch_logs(hours=hours, limit=10000, page=1, page_size=10000)
+                        fetch_app_logs(hours=hours, limit=10000, page=1, page_size=10000)
                         last_refresh[hours] = current_time
                     except Exception as e:
                         print(f"  ⚠️ Failed to refresh {hours}h cache: {e}")
@@ -161,13 +160,26 @@ def periodic_cache_refresh():
                 if acquire_cache_lock(lock_name, timeout=600):
                     try:
                         print(f"  🔄 Refreshing {hours}h summary cache...")
-                        for source in ['cloudwatch', 'grafana']:
-                            fetch_summary_logs(hours=hours, source=source)
+                        fetch_summary_logs(hours=hours)
                         last_summary_refresh[hours] = current_time
                     except Exception as e:
                         print(f"  ⚠️ Failed to refresh {hours}h summary cache: {e}")
                     finally:
                         release_cache_lock(lock_name)
+        
+        # Refresh current-period requests cache every hour
+        if current_time - last_requests_refresh >= 3600:
+            lock_name = "refresh_requests"
+            if acquire_cache_lock(lock_name, timeout=600):
+                try:
+                    print("  🔄 Refreshing current-period requests cache...")
+                    for period, count in [('monthly', 1), ('weekly', 1)]:
+                        get_requests_data(period=period, num_periods=count)
+                    last_requests_refresh = current_time
+                except Exception as e:
+                    print(f"  ⚠️ Failed to refresh requests cache: {e}")
+                finally:
+                    release_cache_lock(lock_name)
         
         # Check every 30 seconds if any cache needs refresh
         time.sleep(30)
@@ -306,7 +318,6 @@ async def get_logs(
     page_size: int = 10000,
     search: Optional[str] = None,
     uuid: Optional[str] = None,
-    source: str = 'cloudwatch',
     current_user: User = Depends(get_current_user)
 ):
     hours = max(1, min(hours, 720))  # Allow up to 1 month (30 days)
@@ -319,8 +330,7 @@ async def get_logs(
         limit=limit, 
         search_query=search,
         page=page,
-        page_size=page_size,
-        source=source
+        page_size=page_size
     )
     
     if uuid:
@@ -362,8 +372,7 @@ async def get_uuids(
         limit=limit, 
         search_query=None,
         page=1,
-        page_size=limit,
-        source='cloudwatch'  # assuming uuids mainly from cloudwatch or we can pass it
+        page_size=limit
     )
     
     uuids = extract_uuids_from_logs(result['logs'])
@@ -375,7 +384,6 @@ async def get_app_logs(
     limit: int = 10000,
     page: int = 1,
     page_size: int = 10000,
-    source: str = 'cloudwatch',
     current_user: User = Depends(get_current_user)
 ):
     hours = max(1, min(hours, 720))  # Allow up to 1 month (30 days)
@@ -387,8 +395,7 @@ async def get_app_logs(
         hours=hours,
         limit=limit,
         page=page,
-        page_size=page_size,
-        source=source
+        page_size=page_size
     )
     
     return result
@@ -396,7 +403,6 @@ async def get_app_logs(
 @app.get("/api/traffic")
 async def get_traffic_data(
     hours: int = 1,
-    source: str = 'cloudwatch',
     current_user: User = Depends(get_current_user)
 ):
     # Restrict to admin-ubl only
@@ -407,14 +413,13 @@ async def get_traffic_data(
         )
     
     hours = max(1, min(hours, 336))  # Allow up to 14 days
-    result = get_intent_traffic_data(hours=hours, source=source)
+    result = get_intent_traffic_data(hours=hours)
     return result
 
 @app.get("/api/requests")
 async def get_requests_endpoint(
     period: str = 'monthly',
     count: int = 6,
-    source: str = 'cloudwatch',
     current_user: User = Depends(get_current_user)
 ):
     if current_user.role != 'admin-ubl':
@@ -425,19 +430,18 @@ async def get_requests_endpoint(
 
     period = period if period in ('monthly', 'weekly') else 'monthly'
     count = max(1, min(count, 24))
-    return get_requests_data(period=period, num_periods=count, source=source)
+    return get_requests_data(period=period, num_periods=count)
 
 @app.get("/api/summary")
 async def get_summary_data(
     hours: int = 1,
-    source: str = 'cloudwatch',
     current_user: User = Depends(get_current_user)
 ):
     hours = max(1, min(hours, 720))  # Allow up to 1 month (30 days)
     # For large time ranges (7+ days), use quick-fail mode to avoid 504 timeouts
     # The background cache warming will populate the cache
     allow_slow = hours < 168  # Only allow slow fetch for < 7 days
-    result = fetch_summary_logs(hours=hours, allow_slow_fetch=allow_slow, source=source)
+    result = fetch_summary_logs(hours=hours, allow_slow_fetch=allow_slow)
     return result
 
 @app.get("/api/user/me", response_model=User)

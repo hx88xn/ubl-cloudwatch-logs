@@ -642,13 +642,6 @@
                     <input type="text" id="searchInput" placeholder="Search by keyword...">
                 </div>
                 <div class="filter-group">
-                    <label>📡 Log Source</label>
-                    <select id="sourceSelect">
-                        <option value="cloudwatch" selected>AWS CloudWatch</option>
-                        <option value="grafana">Grafana Loki</option>
-                    </select>
-                </div>
-                <div class="filter-group">
                     <label>⏰ Time Range</label>
                     <select id="timeRangeSelect">
                         <option value="1">Last 1 hour</option>
@@ -851,7 +844,6 @@
 
             const hours = customHours || document.getElementById('timeRangeSelect').value || '1';
             const search = document.getElementById('searchInput').value.trim();
-            const source = document.getElementById('sourceSelect').value || 'cloudwatch';
 
             // Fetch ALL logs at once to ensure proper UUID grouping (no pagination split)
             const fetchLimit = 100000;
@@ -865,7 +857,7 @@
 
             try {
                 // Don't send search to backend - we'll filter client-side to preserve UUID groups
-                let url = `/api/logs?hours=${hours}&limit=${fetchLimit}&page=1&page_size=${fetchPageSize}&source=${source}`;
+                let url = `/api/logs?hours=${hours}&limit=${fetchLimit}&page=1&page_size=${fetchPageSize}`;
 
                 const response = await fetch(url, {
                     headers: {
@@ -1307,11 +1299,6 @@
                 currentPage = 1;
                 fetchLogs(1);
             }
-        });
-
-        document.getElementById('sourceSelect').addEventListener('change', (e) => {
-            currentPage = 1;
-            fetchLogs(1);
         });
 
         // Apply custom time range
