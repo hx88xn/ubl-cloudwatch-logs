@@ -892,8 +892,8 @@
             const searchQuery = document.getElementById('searchInput').value.trim().toLowerCase();
 
             // Fetch ALL logs at once to ensure proper UUID grouping (no pagination split)
-            const fetchLimit = 100000;
-            const fetchPageSize = 100000;
+            const fetchLimit = 500000;
+            const fetchPageSize = 500000;
 
             currentPage = 1;
 

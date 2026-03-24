@@ -251,12 +251,12 @@ def _fetch_from_grafana(hours: int, filter_pattern: Optional[str] = None) -> Lis
     print(f"📦 Fetching logs from Grafana Loki for {hours} hours...")
     
     iteration = 0
-    max_iterations = 100  # Prevent infinite loops (max 500,000 logs)
+    max_iterations = 200  # Prevent infinite loops (max 1M logs)
     start_time = time.time()
     
     while current_end > range_start and iteration < max_iterations:
-        if time.time() - start_time > 15.0:
-            print(f"⏳ Grafana fetch timeout: Breaking loop after 15s to prevent 504 Gateway Timeout.")
+        if time.time() - start_time > 50.0:
+            print(f"⏳ Grafana fetch timeout: Breaking loop after 50s to prevent reverse-proxy timeout.")
             break
             
         iteration += 1
