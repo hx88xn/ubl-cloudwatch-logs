@@ -731,6 +731,13 @@
                         <option value="500">500 logs</option>
                     </select>
                 </div>
+                <div class="filter-group">
+                    <label>📡 Log Source</label>
+                    <select id="logSourceSelect">
+                        <option value="cloudwatch" selected>AWS CloudWatch</option>
+                        <option value="grafana">Grafana Loki</option>
+                    </select>
+                </div>
             </div>
             <div class="custom-range-container" id="customRangeContainer">
                 <span class="custom-range-label">⏱️ Custom Range:</span>
@@ -895,7 +902,8 @@
             }
 
             try {
-                let url = `/api/app-logs?hours=${hours}&limit=${fetchLimit}&page=1&page_size=${fetchPageSize}`;
+                const logSource = document.getElementById('logSourceSelect') ? document.getElementById('logSourceSelect').value : 'cloudwatch';
+                let url = `/api/app-logs?hours=${hours}&limit=${fetchLimit}&page=1&page_size=${fetchPageSize}&source=${logSource}`;
 
                 const response = await fetch(url, {
                     headers: {
@@ -1367,6 +1375,14 @@
             currentPage = 1;
             fetchLogs(1);
         });
+
+        const logSourceSelect = document.getElementById('logSourceSelect');
+        if (logSourceSelect) {
+            logSourceSelect.addEventListener('change', (e) => {
+                currentPage = 1;
+                fetchLogs(1);
+            });
+        }
 
 
         fetchLogs(1);

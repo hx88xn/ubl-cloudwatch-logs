@@ -318,6 +318,7 @@ async def get_logs(
     page_size: int = 10000,
     search: Optional[str] = None,
     uuid: Optional[str] = None,
+    source: str = 'cloudwatch',
     current_user: User = Depends(get_current_user)
 ):
     hours = max(1, min(hours, 720))  # Allow up to 1 month (30 days)
@@ -330,7 +331,8 @@ async def get_logs(
         limit=limit, 
         search_query=search,
         page=page,
-        page_size=page_size
+        page_size=page_size,
+        source=source
     )
     
     if uuid:
@@ -362,6 +364,7 @@ async def get_streams(current_user: User = Depends(get_current_user)):
 async def get_uuids(
     hours: int = 1,
     limit: int = 10000,
+    source: str = 'cloudwatch',
     current_user: User = Depends(get_current_user)
 ):
     hours = max(1, min(hours, 720))  # Allow up to 1 month (30 days)
@@ -372,7 +375,8 @@ async def get_uuids(
         limit=limit, 
         search_query=None,
         page=1,
-        page_size=limit
+        page_size=limit,
+        source=source
     )
     
     uuids = extract_uuids_from_logs(result['logs'])
@@ -384,6 +388,7 @@ async def get_app_logs(
     limit: int = 10000,
     page: int = 1,
     page_size: int = 10000,
+    source: str = 'cloudwatch',
     current_user: User = Depends(get_current_user)
 ):
     hours = max(1, min(hours, 720))  # Allow up to 1 month (30 days)
@@ -395,7 +400,8 @@ async def get_app_logs(
         hours=hours,
         limit=limit,
         page=page,
-        page_size=page_size
+        page_size=page_size,
+        source=source
     )
     
     return result
