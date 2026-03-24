@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 import boto3
 import requests
+import time
 from src.config import (
     AWS_ACCESS_KEY_ID, 
     AWS_SECRET_ACCESS_KEY, 
@@ -251,8 +252,13 @@ def _fetch_from_grafana(hours: int, filter_pattern: Optional[str] = None) -> Lis
     
     iteration = 0
     max_iterations = 100  # Prevent infinite loops (max 500,000 logs)
+    start_time = time.time()
     
     while current_end > range_start and iteration < max_iterations:
+        if time.time() - start_time > 15.0:
+            print(f"⏳ Grafana fetch timeout: Breaking loop after 15s to prevent 504 Gateway Timeout.")
+            break
+            
         iteration += 1
         params = {
             'query': query,
