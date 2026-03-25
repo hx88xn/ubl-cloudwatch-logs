@@ -1,3 +1,4 @@
+import math
 import re
 import json
 import time
@@ -35,11 +36,18 @@ def _get_cloudwatch_client():
 def get_log_retention_days() -> Optional[int]:
     try:
         client = _get_cloudwatch_client()
-        resp = client.describe_log_groups(logGroupNamePrefix=LOG_GROUP_NAME, limit=1)
-        groups = resp.get('logGroups', [])
-        for g in groups:
-            if g['logGroupName'] == LOG_GROUP_NAME:
-                return g.get('retentionInDays')
+        token = None
+        while True:
+            kwargs = {'logGroupNamePrefix': LOG_GROUP_NAME, 'limit': 50}
+            if token:
+                kwargs['nextToken'] = token
+            resp = client.describe_log_groups(**kwargs)
+            for g in resp.get('logGroups', []):
+                if g['logGroupName'] == LOG_GROUP_NAME:
+                    return g.get('retentionInDays')
+            token = resp.get('nextToken')
+            if not token:
+                break
         return None
     except Exception:
         return None
@@ -82,22 +90,29 @@ def _fetch_events_for_range(start_dt: datetime, end_dt: datetime) -> List[dict]:
 
 def _fetch_events_chunked(client, range_start: datetime, range_end: datetime) -> List[dict]:
     all_events = []
+    total_hours = (range_end - range_start).total_seconds() / 3600
+    # Wider chunks → fewer FilterLogEvents calls. With 14d retention often only 1–2 months
+    # were queried; at 90d many full months load and 24h×~31 chunks/month can exceed LB timeouts.
+    target_chunks = 20
+    chunk_hours = max(24, int(math.ceil(total_hours / target_chunks)))
+    chunk_td = timedelta(hours=chunk_hours)
+    print(f"📦 Requests: fetching {total_hours:.1f}h in ~{chunk_hours}h chunks...")
+
     current_end = range_end
     chunk_count = 0
-    max_chunks = 32
-
-    total_hours = (range_end - range_start).total_seconds() / 3600
-    print(f"📦 Requests: fetching {total_hours:.1f}h in 24h chunks...")
+    max_chunks = 200
 
     while current_end > range_start and chunk_count < max_chunks:
         chunk_count += 1
-        chunk_start = max(current_end - timedelta(hours=24), range_start)
+        chunk_start = max(current_end - chunk_td, range_start)
 
         api_start_ms = int(chunk_start.timestamp() * 1000)
         api_end_ms = int(current_end.timestamp() * 1000)
+        if api_start_ms >= api_end_ms:
+            break
 
         next_token = None
-        for iteration in range(30):
+        for iteration in range(100):
             params = {
                 'logGroupName': LOG_GROUP_NAME,
                 'startTime': api_start_ms,
@@ -276,7 +291,8 @@ def get_requests_data(period: str = 'monthly', num_periods: int = 6) -> Dict:
             if spec['end'] > max_lookback:
                 if spec['start'] < max_lookback:
                     spec['start'] = max_lookback
-                valid_specs.append(spec)
+                if spec['start'] < spec['end']:
+                    valid_specs.append(spec)
             else:
                 print(f"  ⏭️ Skipping {spec['label']} — outside CloudWatch retention ({retention_days}d)")
         specs = valid_specs
@@ -329,7 +345,7 @@ def get_requests_data(period: str = 'monthly', num_periods: int = 6) -> Dict:
                             'events_found': events_found, 'error': error_msg}
 
             if fetch_num < len(uncached_indices) - 1:
-                time.sleep(1)
+                time.sleep(0.35)
 
     counts = [r['count'] for r in results]
     return {
