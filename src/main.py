@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 import asyncio
 import threading
 
-from src.config import AWS_REGION, LOG_GROUP_NAME, ACCESS_TOKEN_EXPIRE_MINUTES, S3_BUCKET_NAME, DB_NAME
+from src.config import AWS_REGION, LOG_GROUP_NAME, ACCESS_TOKEN_EXPIRE_MINUTES, S3_BUCKET_NAME, S3_AUDIO_PREFIX, DB_NAME
 from src.auth import (
     Token, User, get_current_user, 
     authenticate_user, create_access_token
@@ -467,7 +467,8 @@ async def get_audio_files(
     result = list_audio_files(
         page=page,
         page_size=page_size,
-        search_query=search
+        search_query=search,
+        prefix=S3_AUDIO_PREFIX,
     )
     
     return result

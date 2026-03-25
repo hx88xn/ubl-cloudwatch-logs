@@ -5,7 +5,7 @@ import boto3
 
 # Pakistan Standard Time (UTC+5)
 PKT = timezone(timedelta(hours=5))
-from botocore.exceptions import ClientError
+from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError
 from src.config import (
     AWS_ACCESS_KEY_ID,
     AWS_SECRET_ACCESS_KEY,
@@ -123,10 +123,18 @@ def list_audio_files(
         }
         
     except ClientError as e:
+        err = e.response.get('Error', {}) if e.response else {}
         raise HTTPException(
             status_code=500,
-            detail=f"Error listing S3 files: {e.response['Error']['Message']}"
+            detail=f"Error listing S3 files: {err.get('Message', str(e))}"
         )
+    except NoCredentialsError:
+        raise HTTPException(
+            status_code=500,
+            detail="AWS credentials not configured. Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY (or use an instance/task role)."
+        )
+    except BotoCoreError as e:
+        raise HTTPException(status_code=500, detail=f"AWS error listing S3: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing S3 files: {str(e)}")
 
@@ -169,9 +177,17 @@ def get_presigned_url(file_key: str, expiration: int = 3600, download: bool = Fa
         }
         
     except ClientError as e:
+        err = e.response.get('Error', {}) if e.response else {}
         raise HTTPException(
             status_code=500,
-            detail=f"Error generating presigned URL: {e.response['Error']['Message']}"
+            detail=f"Error generating presigned URL: {err.get('Message', str(e))}"
         )
+    except NoCredentialsError:
+        raise HTTPException(
+            status_code=500,
+            detail="AWS credentials not configured. Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY (or use an instance/task role)."
+        )
+    except BotoCoreError as e:
+        raise HTTPException(status_code=500, detail=f"AWS error generating URL: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating presigned URL: {str(e)}")
