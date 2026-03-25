@@ -38,48 +38,32 @@ def format_file_size(size_bytes: int) -> str:
         return f"{size_bytes / (1024 * 1024 * 1024):.1f} GB"
 
 
-def list_audio_files(
+AUDIO_EXTENSIONS = ('.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac', '.webm')
+
+
+def list_audio_files_chunk(
     prefix: str = "",
-    page: int = 1,
-    page_size: int = 50,
-    search_query: Optional[str] = None
+    s3_continuation_token: Optional[str] = None,
 ):
-    """
-    List audio files from S3 bucket with pagination and search.
-    
-    Args:
-        prefix: Optional prefix to filter by folder/path
-        page: Current page number (1-indexed)
-        page_size: Number of items per page
-        search_query: Optional search string to filter filenames
-    
-    Returns:
-        Dictionary containing files list, pagination info
-    """
     client = get_s3_client()
-    
+
     try:
-        all_files = []
-        continuation_token = None
-        listing_truncated = False
+        chunk_files: List[dict] = []
+        continuation = s3_continuation_token
         s3_objects_scanned = 0
         deadline = time.monotonic() + S3_AUDIO_LISTING_TIMEOUT_SECONDS
+        listing_complete = False
+        next_token_out: Optional[str] = None
 
-        while True:
-            if time.monotonic() >= deadline:
-                listing_truncated = True
-                break
-
+        while time.monotonic() < deadline:
             params = {
                 'Bucket': S3_BUCKET_NAME,
-                'MaxKeys': 1000
+                'MaxKeys': 1000,
             }
-
             if prefix:
                 params['Prefix'] = prefix
-
-            if continuation_token:
-                params['ContinuationToken'] = continuation_token
+            if continuation:
+                params['ContinuationToken'] = continuation
 
             response = client.list_objects_v2(**params)
             contents = response.get('Contents') or []
@@ -87,9 +71,9 @@ def list_audio_files(
 
             for obj in contents:
                 key = obj['Key']
-                if key.lower().endswith(('.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac', '.webm')):
+                if key.lower().endswith(AUDIO_EXTENSIONS):
                     last_modified_pkt = obj['LastModified'].astimezone(PKT)
-                    all_files.append({
+                    chunk_files.append({
                         'key': key,
                         'name': key.split('/')[-1],
                         'size': obj['Size'],
@@ -98,55 +82,25 @@ def list_audio_files(
                         'last_modified_formatted': last_modified_pkt.strftime('%Y-%m-%d %H:%M:%S')
                     })
 
-            if response.get('IsTruncated'):
-                continuation_token = response.get('NextContinuationToken')
-            else:
+            if not response.get('IsTruncated'):
+                listing_complete = True
+                next_token_out = None
                 break
 
-        all_files.sort(key=lambda x: x['last_modified'], reverse=True)
+            continuation = response.get('NextContinuationToken')
+            next_token_out = continuation
 
-        if search_query:
-            search_term = search_query.lower().strip()
-            all_files = [
-                f for f in all_files
-                if search_term in f['name'].lower()
-            ]
-
-        total_files = len(all_files)
-
-        if listing_truncated:
-            start_idx = 0
-            end_idx = min(page_size, total_files)
-            paginated_files = all_files[start_idx:end_idx]
-            return {
-                'files': paginated_files,
-                'total': total_files,
-                'page': 1,
-                'page_size': page_size,
-                'has_more': False,
-                'total_pages': 1,
-                'bucket': S3_BUCKET_NAME,
-                'listing_truncated': True,
-                's3_objects_scanned': s3_objects_scanned,
-                'listing_timeout_seconds': S3_AUDIO_LISTING_TIMEOUT_SECONDS,
-            }
-
-        start_idx = (page - 1) * page_size
-        end_idx = start_idx + page_size
-        paginated_files = all_files[start_idx:end_idx]
+        if not listing_complete and next_token_out is None:
+            listing_complete = True
 
         return {
-            'files': paginated_files,
-            'total': total_files,
-            'page': page,
-            'page_size': page_size,
-            'has_more': end_idx < total_files,
-            'total_pages': (total_files + page_size - 1) // page_size if total_files > 0 else 1,
-            'bucket': S3_BUCKET_NAME,
-            'listing_truncated': False,
+            'files': chunk_files,
+            'listing_complete': listing_complete,
+            'next_s3_continuation_token': None if listing_complete else next_token_out,
             's3_objects_scanned': s3_objects_scanned,
+            'bucket': S3_BUCKET_NAME,
         }
-        
+
     except ClientError as e:
         err = e.response.get('Error', {}) if e.response else {}
         raise HTTPException(

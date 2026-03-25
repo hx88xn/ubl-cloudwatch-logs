@@ -14,7 +14,7 @@ from src.auth import (
     authenticate_user, create_access_token
 )
 from src.logs import fetch_logs, get_log_streams, fetch_app_logs
-from src.s3 import list_audio_files, get_presigned_url
+from src.s3 import list_audio_files_chunk, get_presigned_url
 from src.database import get_tables, get_table_data
 from src.utils.helper import filter_uuid, extract_uuids_from_logs
 from src.traffic import get_intent_traffic_data
@@ -456,22 +456,13 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
 
 @app.get("/api/s3/audio-files")
 async def get_audio_files(
-    page: int = 1,
-    page_size: int = 50,
-    search: Optional[str] = None,
+    s3_continuation_token: Optional[str] = None,
     current_user: User = Depends(get_current_user)
 ):
-    page = max(1, page)
-    page_size = max(10, min(page_size, 100))
-    
-    result = list_audio_files(
-        page=page,
-        page_size=page_size,
-        search_query=search,
+    return list_audio_files_chunk(
         prefix=S3_AUDIO_PREFIX,
+        s3_continuation_token=s3_continuation_token,
     )
-    
-    return result
 
 @app.get("/api/s3/audio-url")
 async def get_audio_url(

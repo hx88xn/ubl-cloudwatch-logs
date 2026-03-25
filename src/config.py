@@ -10,7 +10,7 @@ LOG_GROUP_NAME = os.getenv('LOG_GROUP_NAME', '/aws/ecs/fastapi-fortvoice-ubl-pro
 S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', 'fastapi-fortvoice-ubl-prod')
 # Optional key prefix so listing does not scan the entire bucket (faster, fewer timeouts)
 S3_AUDIO_PREFIX = os.getenv('S3_AUDIO_PREFIX', '').strip()
-# Stop S3 listing after this many seconds so the app returns before ALB/nginx 504 (default 60s)
+# Max seconds of S3 listing per HTTP chunk (browser chains chunks until the bucket is fully scanned)
 try:
     S3_AUDIO_LISTING_TIMEOUT_SECONDS = max(5, int(os.getenv('S3_AUDIO_LISTING_TIMEOUT_SECONDS', '25')))
 except ValueError:

@@ -626,18 +626,6 @@
             width: 100%;
         }
         }
-
-        .listing-truncated-banner {
-            display: none;
-            margin: 0 0 16px;
-            padding: 14px 18px;
-            border-radius: 10px;
-            background: rgba(245, 158, 11, 0.12);
-            border: 1px solid rgba(245, 158, 11, 0.35);
-            color: #fcd34d;
-            font-size: 13px;
-            line-height: 1.5;
-        }
     </style>
 </head>
 
@@ -715,7 +703,6 @@
 
 
         <div class="files-container">
-            <div class="listing-truncated-banner" id="listingTruncatedBanner" role="status"></div>
             <div class="files-header">
                 <h2>📁 Audio Files</h2>
                 <span id="fileCount">Loading...</span>
@@ -757,6 +744,7 @@
         let currentPage = 1;
         let totalPages = 1;
         let allFiles = [];
+        let fileCatalog = [];
         let isLoading = false;
         let searchDebounceTimer = null;
         const token = localStorage.getItem('access_token');
@@ -780,9 +768,14 @@
             document.getElementById('filesContainer').innerHTML = `
                 <div class="loading">
                     <div class="spinner"></div>
-                    <div>Loading audio files...</div>
+                    <div id="loadingStatus">Loading audio files...</div>
                 </div>
             `;
+        }
+
+        function setLoadingStatus(text) {
+            const el = document.getElementById('loadingStatus');
+            if (el) el.textContent = text;
         }
 
         function showToast(message, isError = false) {
@@ -820,65 +813,95 @@
             return fallback || `HTTP ${response.status}`;
         }
 
-        function setListingTruncatedBanner(data) {
-            const el = document.getElementById('listingTruncatedBanner');
-            if (!el) return;
-            if (data.listing_truncated) {
-                el.style.display = 'block';
-                const scanned = data.s3_objects_scanned != null
-                    ? Number(data.s3_objects_scanned).toLocaleString()
-                    : '—';
-                const sec = data.listing_timeout_seconds != null ? data.listing_timeout_seconds : '—';
-                el.textContent =
-                    `Partial list: scan stopped after ${sec}s to avoid gateway timeouts (504). ` +
-                    `Scanned ${scanned} S3 objects; showing the first ${data.files.length} of ${data.total} audio files found in that window. ` +
-                    `Set S3_AUDIO_PREFIX on the server to the folder that contains audio, or increase S3_AUDIO_LISTING_TIMEOUT_SECONDS if your load balancer allows a longer upstream timeout.`;
+        function getFilteredFiles() {
+            const q = document.getElementById('searchInput').value.trim().toLowerCase();
+            if (!q) return fileCatalog;
+            return fileCatalog.filter((f) => f.name.toLowerCase().includes(q));
+        }
+
+        function applyLocalPagination() {
+            const filtered = getFilteredFiles();
+            const total = filtered.length;
+            totalPages = total === 0 ? 1 : Math.ceil(total / pageSize);
+            if (currentPage > totalPages) currentPage = totalPages;
+            if (currentPage < 1) currentPage = 1;
+            const start = (currentPage - 1) * pageSize;
+            allFiles = filtered.slice(start, start + pageSize);
+
+            document.getElementById('totalFiles').textContent = total.toLocaleString();
+            document.getElementById('currentPage').textContent = currentPage;
+            document.getElementById('totalPages').textContent = totalPages;
+            if (total === 0) {
+                document.getElementById('fileCount').textContent =
+                    fileCatalog.length === 0 ? 'No files loaded' : 'No files match';
             } else {
-                el.style.display = 'none';
+                const end = start + allFiles.length;
+                document.getElementById('fileCount').textContent =
+                    `Showing ${(start + 1).toLocaleString()}–${end.toLocaleString()} of ${total.toLocaleString()} files`;
             }
+            renderFiles();
+            updatePagination();
         }
 
         async function fetchFiles() {
             if (isLoading) return;
 
             showLoading();
-            const search = document.getElementById('searchInput').value.trim();
             pageSize = parseInt(document.getElementById('pageSizeSelect').value);
 
             try {
-                let url = `/api/s3/audio-files?page=${currentPage}&page_size=${pageSize}`;
-                if (search) {
-                    url += `&search=${encodeURIComponent(search)}`;
-                }
+                const merged = [];
+                let s3Token = null;
+                let chunk = 0;
+                const maxChunks = 100000;
+                let listingComplete = false;
 
-                const response = await fetch(url, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
+                while (chunk < maxChunks) {
+                    chunk += 1;
+                    let url = '/api/s3/audio-files';
+                    if (s3Token) {
+                        url += '?s3_continuation_token=' + encodeURIComponent(s3Token);
                     }
-                });
 
-                if (response.status === 401) {
-                    localStorage.removeItem('access_token');
-                    window.location.href = '/login';
-                    return;
+                    const response = await fetch(url, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+
+                    if (response.status === 401) {
+                        localStorage.removeItem('access_token');
+                        window.location.href = '/login';
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        const detail = await fastApiErrorDetail(response, 'Failed to fetch files');
+                        throw new Error(detail);
+                    }
+
+                    const data = await response.json();
+                    merged.push(...data.files);
+                    listingComplete = !!data.listing_complete;
+                    setLoadingStatus(
+                        listingComplete
+                            ? `Loaded ${merged.length.toLocaleString()} audio files`
+                            : `Scanning… ${merged.length.toLocaleString()} audio files so far`
+                    );
+
+                    if (listingComplete) break;
+                    s3Token = data.next_s3_continuation_token;
+                    if (!s3Token) break;
                 }
 
-                if (!response.ok) {
-                    const detail = await fastApiErrorDetail(response, 'Failed to fetch files');
-                    throw new Error(detail);
+                if (!listingComplete) {
+                    showToast('Scan stopped before the bucket was fully listed (limit reached).', true);
                 }
 
-                const data = await response.json();
-                if (data.listing_truncated) {
-                    currentPage = 1;
-                }
-                allFiles = data.files;
-                totalPages = data.total_pages;
-
-                setListingTruncatedBanner(data);
-                updateStats(data);
-                renderFiles();
-                updatePagination();
+                merged.sort((a, b) => (a.last_modified < b.last_modified ? 1 : a.last_modified > b.last_modified ? -1 : 0));
+                fileCatalog = merged;
+                currentPage = 1;
+                applyLocalPagination();
 
             } catch (error) {
                 console.error('Error fetching files:', error);
@@ -893,13 +916,6 @@
             } finally {
                 isLoading = false;
             }
-        }
-
-        function updateStats(data) {
-            document.getElementById('totalFiles').textContent = data.total.toLocaleString();
-            document.getElementById('currentPage').textContent = data.page;
-            document.getElementById('totalPages').textContent = data.total_pages;
-            document.getElementById('fileCount').textContent = `Showing ${data.files.length} of ${data.total.toLocaleString()} files`;
         }
 
         function renderFiles() {
@@ -1033,21 +1049,21 @@
         function previousPage() {
             if (currentPage > 1) {
                 currentPage--;
-                fetchFiles();
+                applyLocalPagination();
             }
         }
 
         function nextPage() {
             if (currentPage < totalPages) {
                 currentPage++;
-                fetchFiles();
+                applyLocalPagination();
             }
         }
 
         function clearSearch() {
             document.getElementById('searchInput').value = '';
             currentPage = 1;
-            fetchFiles();
+            if (fileCatalog.length) applyLocalPagination();
         }
 
         function logout() {
@@ -1058,12 +1074,12 @@
         // Event listeners
         document.getElementById('searchInput').addEventListener('input', debounce(() => {
             currentPage = 1;
-            fetchFiles();
+            if (fileCatalog.length) applyLocalPagination();
         }, 500));
 
         document.getElementById('pageSizeSelect').addEventListener('change', () => {
             currentPage = 1;
-            fetchFiles();
+            if (fileCatalog.length) applyLocalPagination();
         });
 
         // Initial load
