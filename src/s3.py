@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
+import time
 import boto3
 
 # Pakistan Standard Time (UTC+5)
@@ -10,7 +11,8 @@ from src.config import (
     AWS_ACCESS_KEY_ID,
     AWS_SECRET_ACCESS_KEY,
     AWS_REGION,
-    S3_BUCKET_NAME
+    S3_BUCKET_NAME,
+    S3_AUDIO_LISTING_TIMEOUT_SECONDS,
 )
 
 
@@ -59,27 +61,33 @@ def list_audio_files(
     try:
         all_files = []
         continuation_token = None
-        
-        # Fetch all objects from bucket
+        listing_truncated = False
+        s3_objects_scanned = 0
+        deadline = time.monotonic() + S3_AUDIO_LISTING_TIMEOUT_SECONDS
+
         while True:
+            if time.monotonic() >= deadline:
+                listing_truncated = True
+                break
+
             params = {
                 'Bucket': S3_BUCKET_NAME,
                 'MaxKeys': 1000
             }
-            
+
             if prefix:
                 params['Prefix'] = prefix
-            
+
             if continuation_token:
                 params['ContinuationToken'] = continuation_token
-            
+
             response = client.list_objects_v2(**params)
-            
-            for obj in response.get('Contents', []):
+            contents = response.get('Contents') or []
+            s3_objects_scanned += len(contents)
+
+            for obj in contents:
                 key = obj['Key']
-                # Filter for audio files only
                 if key.lower().endswith(('.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac', '.webm')):
-                    # Convert UTC timestamp to PKT
                     last_modified_pkt = obj['LastModified'].astimezone(PKT)
                     all_files.append({
                         'key': key,
@@ -89,29 +97,44 @@ def list_audio_files(
                         'last_modified': last_modified_pkt.isoformat(),
                         'last_modified_formatted': last_modified_pkt.strftime('%Y-%m-%d %H:%M:%S')
                     })
-            
+
             if response.get('IsTruncated'):
                 continuation_token = response.get('NextContinuationToken')
             else:
                 break
-        
-        # Sort by last modified (newest first)
+
         all_files.sort(key=lambda x: x['last_modified'], reverse=True)
-        
-        # Apply search filter
+
         if search_query:
             search_term = search_query.lower().strip()
             all_files = [
                 f for f in all_files
                 if search_term in f['name'].lower()
             ]
-        
-        # Pagination
+
         total_files = len(all_files)
+
+        if listing_truncated:
+            start_idx = 0
+            end_idx = min(page_size, total_files)
+            paginated_files = all_files[start_idx:end_idx]
+            return {
+                'files': paginated_files,
+                'total': total_files,
+                'page': 1,
+                'page_size': page_size,
+                'has_more': False,
+                'total_pages': 1,
+                'bucket': S3_BUCKET_NAME,
+                'listing_truncated': True,
+                's3_objects_scanned': s3_objects_scanned,
+                'listing_timeout_seconds': S3_AUDIO_LISTING_TIMEOUT_SECONDS,
+            }
+
         start_idx = (page - 1) * page_size
         end_idx = start_idx + page_size
         paginated_files = all_files[start_idx:end_idx]
-        
+
         return {
             'files': paginated_files,
             'total': total_files,
@@ -119,7 +142,9 @@ def list_audio_files(
             'page_size': page_size,
             'has_more': end_idx < total_files,
             'total_pages': (total_files + page_size - 1) // page_size if total_files > 0 else 1,
-            'bucket': S3_BUCKET_NAME
+            'bucket': S3_BUCKET_NAME,
+            'listing_truncated': False,
+            's3_objects_scanned': s3_objects_scanned,
         }
         
     except ClientError as e:
