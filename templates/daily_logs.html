@@ -498,7 +498,7 @@
             <div class="calendar-card">
                 <h2>Select a Day</h2>
                 <p>Choose any calendar day. The page fetches logs only from 12:00 AM to 11:59:59 PM Pakistan time for that date.</p>
-                <input type="date" id="datePicker" class="calendar-input">
+                <input type="date" id="datePicker" class="calendar-input" max="">
                 <div class="selected-date" id="selectedDateText">No day selected</div>
             </div>
 
@@ -653,6 +653,14 @@
             const selectedDate = document.getElementById('datePicker').value;
             if (!selectedDate) {
                 showToast('Please select a date first', 'error');
+                return;
+            }
+
+            const todayInPakistan = getTodayInPakistan();
+            if (selectedDate > todayInPakistan) {
+                document.getElementById('datePicker').value = todayInPakistan;
+                updateSelectedDayUi();
+                showToast('Future dates are not allowed', 'error');
                 return;
             }
 
@@ -959,10 +967,16 @@
         });
 
         document.getElementById('datePicker').addEventListener('change', () => {
+            const todayInPakistan = getTodayInPakistan();
+            if (document.getElementById('datePicker').value > todayInPakistan) {
+                document.getElementById('datePicker').value = todayInPakistan;
+                showToast('Future dates are not allowed', 'error');
+            }
             updateSelectedDayUi();
             fetchLogsForSelectedDate();
         });
 
+        document.getElementById('datePicker').max = getTodayInPakistan();
         document.getElementById('datePicker').value = getTodayInPakistan();
         updateSelectedDayUi();
         fetchLogsForSelectedDate();
