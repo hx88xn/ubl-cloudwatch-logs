@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 from pydantic import BaseModel
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 import boto3
 import requests
@@ -57,6 +57,7 @@ APP_LOGS_PATTERNS = [
 
 # CloudWatch filter pattern for app logs (server-side filtering)
 APP_LOGS_FILTER_PATTERN = '?"Beneficiaries:" ?"Final Response:" ?"Phone contacts:" ?"Bill types:"'
+PKT = timezone(timedelta(hours=5))
 
 def should_filter_log(message: str) -> bool:
     for pattern in FILTER_PATTERNS:
@@ -95,31 +96,35 @@ def case_insensitive_search(message: str, search_query: str) -> bool:
         return True
     return search_query.lower() in message.lower()
 
+def _fetch_from_cloudwatch_range(
+    range_start: datetime,
+    range_end: datetime,
+    filter_pattern: Optional[str] = None
+) -> List[dict]:
+    """Fetch logs from CloudWatch for an exact time range."""
+    client = get_cloudwatch_client()
+
+    total_hours = (range_end - range_start).total_seconds() / 3600
+    if total_hours > 48:
+        return _fetch_logs_chunked(client, range_start, range_end, filter_pattern)
+
+    return _fetch_logs_single(client, range_start, range_end, filter_pattern)
+
+
 def _fetch_from_cloudwatch(hours: int, filter_pattern: Optional[str] = None) -> List[dict]:
     """
     Fetch logs from CloudWatch with chunked querying for large time ranges.
     For ranges > 48 hours, fetches in daily chunks to avoid timeouts.
     """
-    client = get_cloudwatch_client()
-    
-    now = datetime.now()
-    
-    # Calculate the time range
+    now = datetime.now(PKT)
+
     if hours >= 24:
         days_back = hours // 24
         range_start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days_back)
     else:
         range_start = now - timedelta(hours=hours)
-    
-    range_end = now
-    
-    # For large time ranges (> 48 hours), use chunked fetching
-    # This prevents timeouts by breaking the query into smaller pieces
-    if hours > 48:
-        return _fetch_logs_chunked(client, range_start, range_end, filter_pattern)
-    
-    # For smaller ranges, use single query
-    return _fetch_logs_single(client, range_start, range_end, filter_pattern)
+
+    return _fetch_from_cloudwatch_range(range_start, now, filter_pattern)
 
 
 def _fetch_logs_single(client, range_start: datetime, range_end: datetime, filter_pattern: Optional[str] = None) -> List[dict]:
@@ -229,26 +234,24 @@ def _fetch_logs_chunked(client, range_start: datetime, range_end: datetime, filt
     
     return all_events
 
-def _fetch_from_grafana(hours: int, filter_pattern: Optional[str] = None) -> List[dict]:
-    """Fetch logs from Grafana Loki, chunking if necessary."""
+def _fetch_from_grafana_range(
+    range_start: datetime,
+    range_end: datetime,
+    filter_pattern: Optional[str] = None
+) -> List[dict]:
+    """Fetch logs from Grafana Loki for an exact time range."""
     if not GRAFANA_CLOUD_LOKI_URL or not GRAFANA_CLOUD_LOKI_USER or not GRAFANA_CLOUD_LOKI_TOKEN:
         print("⚠️ Grafana Loki credentials not configured")
         return []
-
-    now = datetime.now()
-    if hours >= 24:
-        days_back = hours // 24
-        range_start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days_back)
-    else:
-        range_start = now - timedelta(hours=hours)
 
     url = f"{GRAFANA_CLOUD_LOKI_URL}/loki/api/v1/query_range"
     query = '{service="' + GRAFANA_SERVICE_NAME + '"}'
     
     all_events = []
-    current_end = now
+    current_end = range_end
+    total_hours = (range_end - range_start).total_seconds() / 3600
     
-    print(f"📦 Fetching logs from Grafana Loki for {hours} hours...")
+    print(f"📦 Fetching logs from Grafana Loki for {total_hours:.1f} hours...")
     
     iteration = 0
     max_iterations = 200  # Prevent infinite loops (max 1M logs)
@@ -315,6 +318,18 @@ def _fetch_from_grafana(hours: int, filter_pattern: Optional[str] = None) -> Lis
             
     all_events.sort(key=lambda x: x['timestamp'], reverse=True)
     return all_events
+
+
+def _fetch_from_grafana(hours: int, filter_pattern: Optional[str] = None) -> List[dict]:
+    """Fetch logs from Grafana Loki, chunking if necessary."""
+    now = datetime.now(PKT)
+    if hours >= 24:
+        days_back = hours // 24
+        range_start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days_back)
+    else:
+        range_start = now - timedelta(hours=hours)
+
+    return _fetch_from_grafana_range(range_start, now, filter_pattern)
 
 def _format_events(events: List[dict]) -> List[dict]:
     formatted = []
@@ -432,6 +447,60 @@ def fetch_logs(
         'page_size': page_size,
         'has_more': end_idx < total_events,
         'total_pages': (total_events + page_size - 1) // page_size
+    }
+
+
+def fetch_logs_for_date(
+    date_str: str,
+    limit: int = 500,
+    search_query: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 50,
+    source: str = 'cloudwatch'
+):
+    try:
+        selected_day = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.") from e
+
+    range_start = datetime.combine(selected_day, datetime.min.time(), tzinfo=PKT)
+    range_end = range_start + timedelta(days=1)
+
+    try:
+        all_events = (
+            _fetch_from_grafana_range(range_start, range_end)
+            if source == 'grafana'
+            else _fetch_from_cloudwatch_range(range_start, range_end)
+        )
+
+        all_events = [
+            event for event in all_events
+            if not should_filter_log(event.get('message', ''))
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching logs: {str(e)}")
+
+    if search_query:
+        search_term = search_query.strip()
+        all_events = [
+            event for event in all_events
+            if case_insensitive_search(event.get('message', ''), search_term)
+        ]
+
+    total_events = len(all_events)
+    start_idx = (page - 1) * page_size
+    end_idx = start_idx + page_size
+
+    paginated_events = all_events[start_idx:end_idx]
+    formatted_events = _format_events(paginated_events)
+
+    return {
+        'logs': formatted_events,
+        'total': total_events,
+        'page': page,
+        'page_size': page_size,
+        'has_more': end_idx < total_events,
+        'total_pages': (total_events + page_size - 1) // page_size if total_events > 0 else 1
     }
 
 def get_log_streams():
