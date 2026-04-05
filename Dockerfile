@@ -13,8 +13,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 COPY src/ ./src/
 COPY templates/ ./templates/
-
-RUN mkdir -p ./static
+COPY static/ ./static/
 
 EXPOSE 6067
 
