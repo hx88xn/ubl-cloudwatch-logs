@@ -653,16 +653,6 @@
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label>📄 Results Per Page</label>
-                    <select id="pageSizeSelect">
-                        <option value="25">25 logs</option>
-                        <option value="50" selected>50 logs</option>
-                        <option value="100">100 logs</option>
-                        <option value="200">200 logs</option>
-                        <option value="500">500 logs</option>
-                    </select>
-                </div>
-                <div class="filter-group">
                     <label>📡 Log Source</label>
                     <select id="logSourceSelect">
                         <option value="cloudwatch" selected>AWS CloudWatch</option>
@@ -749,7 +739,6 @@
         let isLoading = false;
         let searchDebounceTimer = null;
         const token = localStorage.getItem('access_token');
-        let pageSize = 50;
         let currentAbortController = null;  // For cancelling previous requests
         let customHours = null;  // Track custom time range in hours
 
@@ -1214,10 +1203,8 @@
         function clearFilters() {
             document.getElementById('searchInput').value = '';
             document.getElementById('timeRangeSelect').selectedIndex = 0;
-            document.getElementById('pageSizeSelect').selectedIndex = 1;
             document.getElementById('customRangeContainer').classList.remove('active');
             customHours = null;
-            pageSize = 50;
             currentPage = 1;
             fetchLogs();
         }
@@ -1335,13 +1322,6 @@
             fetchLogs(1);
             showToast(`✓ Showing logs for last ${value} ${unit}`);
         }
-
-
-        document.getElementById('pageSizeSelect').addEventListener('change', (e) => {
-            pageSize = parseInt(e.target.value);
-            currentPage = 1;
-            fetchLogs(1);
-        });
 
         const logSourceSelect = document.getElementById('logSourceSelect');
         if (logSourceSelect) {

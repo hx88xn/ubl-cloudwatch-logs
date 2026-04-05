@@ -557,14 +557,6 @@
                     <label>🔍 Search</label>
                     <input type="text" id="searchInput" placeholder="Search in all columns...">
                 </div>
-                <div class="filter-group">
-                    <label>📄 Rows Per Page</label>
-                    <select id="pageSizeSelect">
-                        <option value="25">25 rows</option>
-                        <option value="50" selected>50 rows</option>
-                        <option value="100">100 rows</option>
-                    </select>
-                </div>
             </div>
             <div class="action-buttons">
                 <button class="btn btn-primary" onclick="fetchTableData()">
@@ -719,7 +711,7 @@
             if (!selectedTable) return;
 
             const search = document.getElementById('searchInput').value.trim();
-            pageSize = parseInt(document.getElementById('pageSizeSelect').value);
+            pageSize = 50;
 
             document.getElementById('tableBody').innerHTML = `
                 <tr><td colspan="100" class="loading">
@@ -881,12 +873,6 @@
             currentPage = 1;
             fetchTableData();
         }, 500));
-
-        document.getElementById('pageSizeSelect').addEventListener('change', () => {
-            currentPage = 1;
-            fetchTableData();
-        });
-
         // Initial load
         fetchTables();
     </script>

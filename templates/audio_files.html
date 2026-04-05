@@ -682,14 +682,6 @@
                     <label>🔍 Search Files</label>
                     <input type="text" id="searchInput" placeholder="Search by filename...">
                 </div>
-                <div class="filter-group">
-                    <label>📄 Results Per Page</label>
-                    <select id="pageSizeSelect">
-                        <option value="25">25 files</option>
-                        <option value="50" selected>50 files</option>
-                        <option value="100">100 files</option>
-                    </select>
-                </div>
             </div>
             <div class="action-buttons">
                 <button class="btn btn-primary" onclick="fetchFiles()">
@@ -847,7 +839,7 @@
             if (isLoading) return;
 
             showLoading();
-            pageSize = parseInt(document.getElementById('pageSizeSelect').value);
+            pageSize = 50;
 
             try {
                 const merged = [];
@@ -1076,12 +1068,6 @@
             currentPage = 1;
             if (fileCatalog.length) applyLocalPagination();
         }, 500));
-
-        document.getElementById('pageSizeSelect').addEventListener('change', () => {
-            currentPage = 1;
-            if (fileCatalog.length) applyLocalPagination();
-        });
-
         // Initial load
         fetchFiles();
     </script>
