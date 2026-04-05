@@ -6,630 +6,156 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Summary - CloudWatch</title>
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Nunito+Sans:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
         rel="stylesheet">
+    <link rel="stylesheet" href="/static/hearth.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #e4e4e4;
-            min-height: 100vh;
-        }
-
-        .navbar {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 16px 32px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .logo-section {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .logo-icon {
-            font-size: 24px;
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .logo-text {
-            font-size: 20px;
-            font-weight: 700;
-            color: white;
-        }
-
-        .nav-buttons {
-            display: flex;
-            gap: 12px;
-        }
-
-        .logout-btn {
-            padding: 10px 20px;
-            background: rgba(239, 68, 68, 0.2);
-            border: 1px solid rgba(239, 68, 68, 0.4);
-            color: #ef4444;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-
-        .logout-btn:hover {
-            background: rgba(239, 68, 68, 0.3);
-            transform: translateY(-2px);
-        }
-
-        .back-btn {
-            padding: 10px 20px;
-            background: rgba(102, 126, 234, 0.2);
-            border: 1px solid rgba(102, 126, 234, 0.4);
-            color: #667eea;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-
-        .back-btn:hover {
-            background: rgba(102, 126, 234, 0.3);
-            transform: translateY(-2px);
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 32px;
-        }
-
-        .header {
-            margin-bottom: 32px;
-        }
-
-        .header h1 {
-            font-size: 32px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .metadata {
-            display: flex;
-            gap: 24px;
-            flex-wrap: wrap;
-            margin-top: 12px;
-        }
-
-        .metadata-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        .metadata-value {
-            color: #667eea;
-            font-weight: 500;
-        }
-
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-
-        .stat-card {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 20px;
-            transition: all 0.3s ease;
-        }
-
-        .stat-card:hover {
-            background: rgba(255, 255, 255, 0.08);
-            transform: translateY(-2px);
-        }
-
-        .stat-value {
-            font-size: 28px;
-            font-weight: 700;
-            color: #667eea;
-            margin-bottom: 4px;
-        }
-
-        .stat-label {
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        .filters {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 24px;
-        }
-
-        .filters-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 16px;
-            margin-bottom: 16px;
-        }
-
-        .filter-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .filter-group label {
-            font-size: 13px;
-            font-weight: 500;
-            color: rgba(255, 255, 255, 0.7);
-        }
-
-        input,
-        select {
-            padding: 10px 14px;
-            background: #2d3748;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 8px;
-            color: white;
-            font-size: 14px;
-            font-family: 'Inter', sans-serif;
-            transition: all 0.3s ease;
-        }
-
-        input:focus,
-        select:focus {
-            outline: none;
-            border-color: #667eea;
-            background: #374151;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.08);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.12);
-        }
-
         .summary-container {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
             overflow: hidden;
         }
-
         .summary-header {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 16px 24px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background: var(--bg-elevated);
+            padding: 14px 22px;
+            border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-
         .summary-header h2 {
-            font-size: 18px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 16px;
             font-weight: 600;
         }
-
         .summary-scroll {
             max-height: 700px;
             overflow-y: auto;
         }
-
-        .summary-scroll::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .summary-scroll::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .summary-scroll::-webkit-scrollbar-thumb {
-            background: rgba(102, 126, 234, 0.5);
-            border-radius: 4px;
-        }
-
-        /* Summary Table Styles */
+        .summary-scroll::-webkit-scrollbar { width: 6px; }
+        .summary-scroll::-webkit-scrollbar-track { background: transparent; }
+        .summary-scroll::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.25); border-radius: 3px; }
         .summary-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 14px;
+            font-size: 13px;
         }
-
         .summary-table thead {
-            background: #1a1f35;
+            background: var(--bg-deep);
             position: sticky;
             top: 0;
             z-index: 10;
         }
-
         .summary-table th {
-            background: #1a1f35;
-            padding: 14px 16px;
+            background: var(--bg-deep);
+            padding: 12px 14px;
             text-align: left;
-            font-weight: 600;
-            color: #667eea;
-            border-bottom: 2px solid rgba(102, 126, 234, 0.4);
+            font-weight: 700;
+            color: var(--accent);
+            border-bottom: 2px solid var(--border-strong);
             white-space: nowrap;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
-
         .summary-table tbody tr {
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            border-bottom: 1px solid var(--border);
             transition: background 0.2s ease;
+            cursor: pointer;
         }
-
         .summary-table tbody tr:hover {
-            background: rgba(102, 126, 234, 0.1);
+            background: var(--accent-glow);
         }
-
         .summary-table td {
-            padding: 14px 16px;
+            padding: 12px 14px;
             vertical-align: top;
         }
-
         .summary-table .col-time {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 13px;
-            color: #fbbf24;
+            font-family: 'Fira Code', monospace;
+            font-size: 12px;
+            color: var(--accent-light);
             white-space: nowrap;
-            min-width: 160px;
+            min-width: 150px;
         }
-
         .summary-table .col-intent {
-            font-weight: 600;
-            color: #10b981;
-            min-width: 120px;
+            font-weight: 700;
+            color: var(--success);
+            min-width: 110px;
         }
-
         .summary-table .col-transcription {
-            color: rgba(255, 255, 255, 0.9);
+            color: var(--text-secondary);
             max-width: 400px;
             word-break: break-word;
         }
-
         .summary-table .col-final-response {
-            color: #60a5fa;
+            color: var(--info);
             max-width: 400px;
             word-break: break-word;
         }
-
         .summary-table .empty-value {
-            color: rgba(255, 255, 255, 0.4);
+            color: var(--text-muted);
             font-style: italic;
         }
-
         @media (max-width: 1024px) {
-            .summary-table {
-                display: block;
-                overflow-x: auto;
-            }
+            .summary-table { display: block; overflow-x: auto; }
         }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .spinner {
-            display: inline-block;
-            width: 40px;
-            height: 40px;
-            border: 3px solid rgba(255, 255, 255, 0.1);
-            border-top-color: #667eea;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin-bottom: 16px;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: rgba(255, 255, 255, 0.4);
-        }
-
-        .empty-state-icon {
-            font-size: 64px;
-            margin-bottom: 16px;
-        }
-
-        .toast {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            background: rgba(16, 185, 129, 0.9);
-            color: white;
-            padding: 16px 24px;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-            display: none;
-            z-index: 1000;
-        }
-
-        .toast.show {
-            display: block;
-        }
-
-        /* Modal Styles */
+        /* Modal */
         .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(4px);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            padding: 20px;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(6px);
+            display: none; align-items: center; justify-content: center;
+            z-index: 1000; padding: 20px;
         }
-
-        .modal-overlay.active {
-            display: flex;
-        }
-
+        .modal-overlay.active { display: flex; }
         .modal {
-            background: #1a1f35;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 16px;
-            width: 100%;
-            max-width: 900px;
-            max-height: 80vh;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+            background: var(--bg-base);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            width: 100%; max-width: 900px; max-height: 80vh;
+            display: flex; flex-direction: column;
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
         }
-
         .modal-header {
-            padding: 20px 24px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            padding: 18px 22px;
+            border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
         }
-
         .modal-header h3 {
-            font-size: 18px;
-            font-weight: 600;
-            color: #667eea;
-            display: flex;
-            align-items: center;
-            gap: 10px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 16px; font-weight: 600; color: var(--accent);
+            display: flex; align-items: center; gap: 8px;
         }
-
         .modal-uuid {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 13px;
-            color: #fbbf24;
-            background: rgba(251, 191, 36, 0.1);
-            padding: 4px 8px;
+            font-family: 'Fira Code', monospace;
+            font-size: 11px; color: var(--uuid-accent);
+            background: var(--uuid-bg); padding: 3px 8px;
             border-radius: 6px;
         }
-
         .modal-close {
-            width: 36px;
-            height: 36px;
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            color: rgba(255, 255, 255, 0.7);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            transition: all 0.2s ease;
+            width: 34px; height: 34px;
+            background: var(--bg-surface); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); color: var(--text-secondary);
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            font-size: 16px; transition: all 0.2s ease;
         }
-
         .modal-close:hover {
-            background: rgba(239, 68, 68, 0.2);
-            border-color: rgba(239, 68, 68, 0.4);
-            color: #ef4444;
+            background: var(--error-bg); border-color: var(--error-border); color: var(--error);
         }
-
         .modal-body {
-            padding: 20px 24px;
-            overflow-y: auto;
-            flex: 1;
+            padding: 18px 22px; overflow-y: auto; flex: 1;
         }
-
-        .modal-body::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .modal-body::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .modal-body::-webkit-scrollbar-thumb {
-            background: rgba(102, 126, 234, 0.5);
-            border-radius: 4px;
-        }
-
-        .log-entry {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 10px;
-            padding: 14px 16px;
-            margin-bottom: 12px;
-            transition: all 0.2s ease;
-        }
-
-        .log-entry:hover {
-            background: rgba(255, 255, 255, 0.05);
-            border-color: rgba(102, 126, 234, 0.3);
-        }
-
-        .log-entry:last-child {
-            margin-bottom: 0;
-        }
-
-        .log-timestamp {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 12px;
-            color: #fbbf24;
-            margin-bottom: 8px;
-        }
-
-        .log-message {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.85);
-            line-height: 1.6;
-            word-break: break-word;
-            white-space: pre-wrap;
-        }
-
+        .modal-body::-webkit-scrollbar { width: 6px; }
+        .modal-body::-webkit-scrollbar-track { background: transparent; }
+        .modal-body::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.25); border-radius: 3px; }
         .log-count-badge {
-            font-size: 12px;
-            background: rgba(102, 126, 234, 0.2);
-            color: #667eea;
-            padding: 4px 10px;
-            border-radius: 12px;
-            margin-left: 10px;
-        }
-
-        .summary-table tbody tr {
-            cursor: pointer;
-        }
-
-        .summary-table tbody tr:hover {
-            background: rgba(102, 126, 234, 0.15);
-        }
-
-        .custom-range-container {
-            display: none;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 16px;
-            background: rgba(102, 126, 234, 0.1);
-            border: 1px solid rgba(102, 126, 234, 0.3);
+            font-size: 11px;
+            background: var(--accent-glow);
+            color: var(--accent);
+            padding: 3px 8px;
             border-radius: 10px;
-            margin-top: 12px;
-        }
-
-        .custom-range-container.active {
-            display: flex;
-            flex-wrap: wrap;
-        }
-
-        .custom-range-label {
-            font-size: 13px;
-            font-weight: 500;
-            color: #667eea;
-        }
-
-        .custom-range-input {
-            width: 80px;
-            padding: 8px 12px;
-            text-align: center;
-        }
-
-        .custom-range-unit {
-            padding: 8px 12px;
-            min-width: 100px;
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                padding: 16px;
-            }
-
-            .filters-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .navbar {
-                padding: 12px 16px;
-            }
-
-            .header h1 {
-                font-size: 24px;
-            }
-
-            .custom-range-container {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .custom-range-input,
-            .custom-range-unit {
-                width: 100%;
-            }
+            margin-left: 8px;
         }
     </style>
 </head>
@@ -638,25 +164,25 @@
 
     <nav class="navbar">
         <div class="logo-section">
-            <div class="logo-icon">📋</div>
+            <div class="logo-icon">&#x1F4CB;</div>
             <span class="logo-text">Summary</span>
         </div>
         <div class="nav-buttons">
-            <button class="back-btn" onclick="window.location.href='/dashboard'">← Back to Dashboard</button>
-            <button class="logout-btn" onclick="logout()">🚪 Logout</button>
+            <button class="back-btn" onclick="window.location.href='/dashboard'">Back to Dashboard</button>
+            <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
     </nav>
 
     <div class="container">
         <div class="header">
-            <h1>📋 Call Summary</h1>
+            <h1>Call Summary</h1>
             <div class="metadata">
                 <div class="metadata-item">
-                    <span>📁 Log Group:</span>
+                    <span>Log Group:</span>
                     <span class="metadata-value">{{ log_group }}</span>
                 </div>
                 <div class="metadata-item">
-                    <span>🌍 Region:</span>
+                    <span>Region:</span>
                     <span class="metadata-value">{{ region }}</span>
                 </div>
             </div>
@@ -676,11 +202,11 @@
         <div class="filters">
             <div class="filters-grid">
                 <div class="filter-group">
-                    <label>🔍 Search</label>
+                    <label>Search</label>
                     <input type="text" id="searchInput" placeholder="Search by transcription or intent...">
                 </div>
                 <div class="filter-group">
-                    <label>⏰ Time Range</label>
+                    <label>Time Range</label>
                     <select id="timeRangeSelect">
                         <option value="1">Last 1 hour</option>
                         <option value="6">Last 6 hours</option>
@@ -689,12 +215,12 @@
                         <option value="168">Last 7 days</option>
                         <option value="336">Last 14 days</option>
                         <option value="720">Last 1 Month</option>
-                        <option value="custom">⏱️ Custom...</option>
+                        <option value="custom">Custom...</option>
                     </select>
                 </div>
             </div>
             <div class="custom-range-container" id="customRangeContainer">
-                <span class="custom-range-label">⏱️ Custom Range:</span>
+                <label class="custom-range-label">Custom Range:</label>
                 <input type="number" class="custom-range-input" id="customRangeValue" min="1" value="1"
                     placeholder="Value">
                 <select class="custom-range-unit" id="customRangeUnit">
@@ -704,15 +230,15 @@
                 <button class="btn btn-primary" onclick="applyCustomRange()">Apply</button>
             </div>
             <div class="action-buttons">
-                <button class="btn btn-primary" onclick="fetchSummary()">🔄 Refresh</button>
-                <button class="btn btn-secondary" onclick="clearFilters()">✖️ Clear Filters</button>
-                <button class="btn btn-secondary" onclick="exportSummary()">💾 Export</button>
+                <button class="btn btn-primary" onclick="fetchSummary()">Refresh</button>
+                <button class="btn btn-secondary" onclick="clearFilters()">Clear Filters</button>
+                <button class="btn btn-secondary" onclick="exportSummary()">Export</button>
             </div>
         </div>
 
         <div class="summary-container">
             <div class="summary-header">
-                <h2>📝 Session Summaries</h2>
+                <h2>Session Summaries</h2>
                 <span id="summaryCount">Loading...</span>
             </div>
             <div class="summary-scroll" id="summaryContainer">
@@ -731,20 +257,19 @@
         <div class="modal">
             <div class="modal-header">
                 <h3>
-                    📋 Session Logs
+                    Session Logs
                     <span class="log-count-badge" id="modalLogCount"></span>
+                    <span style="display: flex; gap: 10px; margin-left: 8px; font-size: 13px; flex-wrap: wrap;">
+                        <span
+                            style="background: var(--accent-glow); padding: 3px 10px; border-radius: 6px; color: var(--accent-light); font-size: 12px;">
+                            <span id="modalTime"></span>
+                        </span>
+                        <span class="modal-uuid">
+                            <span id="modalUuid"></span>
+                        </span>
+                    </span>
                 </h3>
-                <div style="display: flex; gap: 16px; margin-top: 8px; font-size: 13px; flex-wrap: wrap;">
-                    <span
-                        style="background: rgba(102, 126, 234, 0.2); padding: 4px 12px; border-radius: 6px; color: #a5b4fc;">
-                        🕐 <span id="modalTime"></span>
-                    </span>
-                    <span
-                        style="background: rgba(251, 191, 36, 0.2); padding: 4px 12px; border-radius: 6px; color: #fbbf24; font-family: 'JetBrains Mono', monospace; font-size: 11px;">
-                        🔑 <span id="modalUuid"></span>
-                    </span>
-                </div>
-                <button class="modal-close" onclick="closeLogModal()">✕</button>
+                <button class="modal-close" onclick="closeLogModal()">&#x2715;</button>
             </div>
             <div class="modal-body" id="modalBody">
                 <!-- Log entries will be inserted here -->
@@ -755,11 +280,11 @@
     <script>
         let allSummaries = [];
         let filteredSummaries = [];
-        let uuidLogsMap = {};  // Key-value pair: uuid -> array of all logs for that uuid
+        let uuidLogsMap = {};
         let customHours = null;
         const token = localStorage.getItem('access_token');
 
-        // Regex patterns for parsing logs (same as backend)
+        // Regex patterns for parsing logs
         const UUID_PATTERN = /\[([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\]/;
         const DETECTED_INTENT_PATTERN = /Detected Intent:\s*(\w+)/i;
         const ORIGINAL_TRANSCRIPTION_PATTERN = /Original transcription:\s*(.+)/i;
@@ -808,7 +333,7 @@
             setTimeout(() => toast.classList.remove('show'), 3000);
         }
 
-        let isMonthView = false;  // Track if we're viewing 1 month data (no row popup)
+        let isMonthView = false;
 
         async function fetchSummary() {
             const hours = parseInt(customHours || document.getElementById('timeRangeSelect').value);
@@ -818,7 +343,6 @@
                 let response;
 
                 // For 7+ days (168 hours), use the filtered /api/summary endpoint (server-side filtering)
-                // This prevents timeouts by using CloudWatch filter patterns
                 if (hours >= 168) {
                     isMonthView = true;
                     response = await fetch(`/api/summary?hours=${hours}`, {
@@ -836,13 +360,13 @@
                     }
 
                     const data = await response.json();
-                    
+
                     // Handle cache warming message
                     if (data.cache_warming) {
                         document.getElementById('summaryContainer').innerHTML = `
                             <div class="loading">
                                 <div class="spinner"></div>
-                                <div style="margin-bottom: 12px;">⏳ ${data.message || 'Cache is warming up...'}</div>
+                                <div style="margin-bottom: 12px;">${data.message || 'Cache is warming up...'}</div>
                                 <div style="font-size: 13px; opacity: 0.7;">Auto-retrying in <span id="retryCountdown">30</span> seconds...</div>
                             </div>
                         `;
@@ -859,13 +383,13 @@
                         }, 1000);
                         return;
                     }
-                    
+
                     allSummaries = data.summaries || [];
-                    uuidLogsMap = {};  // No log details for large time range view
+                    uuidLogsMap = {};
 
                     updateStats({ total: allSummaries.length });
                     applySearchFilter();
-                    showToast(`✓ Summary refreshed (${allSummaries.length} sessions)`);
+                    showToast(`Summary refreshed (${allSummaries.length} sessions)`);
                 } else {
                     // For shorter ranges (<7 days), fetch all logs and process client-side
                     isMonthView = false;
@@ -893,13 +417,13 @@
 
                     updateStats({ total: allSummaries.length });
                     applySearchFilter();
-                    showToast(`✓ Summary refreshed (${allLogs.length} logs processed)`);
+                    showToast(`Summary refreshed (${allLogs.length} logs processed)`);
                 }
             } catch (error) {
                 console.error('Error:', error);
                 document.getElementById('summaryContainer').innerHTML = `
                     <div class="empty-state">
-                        <div class="empty-state-icon">⚠️</div>
+                        <div class="empty-state-icon">&#x26A0;</div>
                         <div>Error loading data: ${error.message}</div>
                     </div>
                 `;
@@ -907,7 +431,6 @@
         }
 
         function processLogsToSummaries(logs) {
-            // Group logs by UUID and extract summary fields
             const uuidGroups = {};
             const uuidLogsMap = {};
 
@@ -915,12 +438,10 @@
                 const message = log.message || '';
                 const timestamp = log.timestamp || 0;
 
-                // Extract UUID from message
                 const uuidMatch = message.match(UUID_PATTERN);
                 if (uuidMatch) {
                     const uuid = uuidMatch[1];
 
-                    // Initialize group if not exists
                     if (!uuidGroups[uuid]) {
                         uuidGroups[uuid] = {
                             uuid: uuid,
@@ -933,16 +454,13 @@
                         uuidLogsMap[uuid] = [];
                     }
 
-                    // Add log to the UUID's log array
                     uuidLogsMap[uuid].push(log);
                     uuidGroups[uuid].log_count++;
 
-                    // Update timestamp (use the most recent)
                     if (!uuidGroups[uuid].timestamp || timestamp > uuidGroups[uuid].timestamp) {
                         uuidGroups[uuid].timestamp = timestamp;
                     }
 
-                    // Extract summary fields (only if not already set)
                     if (!uuidGroups[uuid].detected_intent) {
                         const intentMatch = message.match(DETECTED_INTENT_PATTERN);
                         if (intentMatch) {
@@ -1013,7 +531,6 @@
 
         function extractTypeFromFinalResponse(finalResponse) {
             if (!finalResponse) return null;
-            // Try to extract 'type' value using regex (handles both Python dict and JSON format)
             const typeMatch = finalResponse.match(/['"]type['"]\s*:\s*['"]([^'"]+)['"]/);
             if (typeMatch) {
                 return typeMatch[1];
@@ -1027,7 +544,7 @@
             if (filteredSummaries.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
-                        <div class="empty-state-icon">📭</div>
+                        <div class="empty-state-icon">&#x1F4ED;</div>
                         <div>No sessions found for the selected time range</div>
                     </div>
                 `;
@@ -1039,10 +556,10 @@
                 <table class="summary-table">
                     <thead>
                         <tr>
-                            <th>⏰ Time</th>
-                            <th>🎯 Detected Intent</th>
-                            <th>💬 Original Transcription</th>
-                            <th>📝 Final Response</th>
+                            <th>Time</th>
+                            <th>Detected Intent</th>
+                            <th>Original Transcription</th>
+                            <th>Final Response</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1055,7 +572,6 @@
                 const transcription = summary.original_transcription || null;
                 const logCount = summary.log_count || 0;
 
-                // Enable row popup for all views
                 html += `
                     <tr onclick="showLogModal('${summary.uuid}')" title="Click to view all logs for this session">
                         <td class="col-time">${time}</td>
@@ -1104,12 +620,18 @@
             a.download = `summary_${new Date().toISOString().slice(0, 10)}.csv`;
             a.click();
             URL.revokeObjectURL(url);
-            showToast('✓ Exported to CSV');
+            showToast('Exported to CSV');
         }
 
         function logout() {
             localStorage.removeItem('access_token');
             window.location.href = '/login';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         async function showLogModal(uuid) {
@@ -1124,11 +646,9 @@
             modal.classList.add('active');
             document.body.style.overflow = 'hidden';
 
-            // Check if we have logs in memory, otherwise fetch from API
             let logs = uuidLogsMap[uuid] || [];
 
             if (logs.length === 0 && isMonthView) {
-                // For 1 month view, fetch logs from API
                 modalLogCount.textContent = 'Loading...';
                 modalBody.innerHTML = `
                     <div class="loading" style="padding: 40px;">
@@ -1155,7 +675,7 @@
                     console.error('Error fetching logs:', error);
                     modalBody.innerHTML = `
                         <div class="empty-state" style="padding: 40px 20px;">
-                            <div class="empty-state-icon">⚠️</div>
+                            <div class="empty-state-icon">&#x26A0;</div>
                             <div>Error loading logs: ${error.message}</div>
                         </div>
                     `;
@@ -1170,19 +690,17 @@
                 document.getElementById('modalTime').textContent = '';
                 modalBody.innerHTML = `
                     <div class="empty-state" style="padding: 40px 20px;">
-                        <div class="empty-state-icon">📭</div>
+                        <div class="empty-state-icon">&#x1F4ED;</div>
                         <div>No logs found for this session</div>
                     </div>
                 `;
             } else {
-                // Get the session time from the first (most recent) log
                 const sessionTime = logs[0]?.timestamp ? toPakistanTime(logs[0].timestamp) : 'Unknown';
                 document.getElementById('modalTime').textContent = sessionTime;
 
                 let logsHtml = '';
                 logs.forEach(log => {
                     let message = log.message || '';
-                    // Remove UUID pattern from message: [xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx]
                     message = message.replace(/\[[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\]/g, '').trim();
                     logsHtml += `
                         <div class="log-entry">
@@ -1198,12 +716,6 @@
             const modal = document.getElementById('logModal');
             modal.classList.remove('active');
             document.body.style.overflow = '';
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
         }
 
         // Close modal on overlay click or Escape key
@@ -1231,6 +743,7 @@
                 fetchSummary();
             }
         });
+
         document.getElementById('searchInput').addEventListener('input', () => {
             clearTimeout(window.searchTimer);
             window.searchTimer = setTimeout(applySearchFilter, 300);
@@ -1240,7 +753,7 @@
             const value = parseInt(document.getElementById('customRangeValue').value) || 1;
             const unit = document.getElementById('customRangeUnit').value;
             customHours = unit === 'days' ? value * 24 : value;
-            customHours = Math.max(1, Math.min(customHours, 720)); // Limit to 1 month
+            customHours = Math.max(1, Math.min(customHours, 720));
             fetchSummary();
         }
 

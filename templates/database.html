@@ -6,488 +6,83 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Database - {{ db_name }}</title>
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Nunito+Sans:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
         rel="stylesheet">
+    <link rel="stylesheet" href="/static/hearth.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #e4e4e4;
-            min-height: 100vh;
-        }
-
-        .navbar {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 16px 32px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .logo-section {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .logo-icon {
-            font-size: 24px;
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .logo-text {
-            font-size: 20px;
-            font-weight: 700;
-            color: white;
-        }
-
-        .nav-buttons {
-            display: flex;
-            gap: 12px;
-        }
-
-        .logout-btn {
-            padding: 10px 20px;
-            background: rgba(239, 68, 68, 0.2);
-            border: 1px solid rgba(239, 68, 68, 0.4);
-            color: #ef4444;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-
-        .logout-btn:hover {
-            background: rgba(239, 68, 68, 0.3);
-            transform: translateY(-2px);
-        }
-
-        .back-btn {
-            padding: 10px 20px;
-            background: rgba(102, 126, 234, 0.2);
-            border: 1px solid rgba(102, 126, 234, 0.4);
-            color: #667eea;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-
-        .back-btn:hover {
-            background: rgba(102, 126, 234, 0.3);
-            transform: translateY(-2px);
-        }
-
-        .container {
-            max-width: 1600px;
-            margin: 0 auto;
-            padding: 32px;
-        }
-
-        .header {
-            margin-bottom: 32px;
-        }
-
-        .header h1 {
-            font-size: 32px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .metadata {
-            display: flex;
-            gap: 24px;
-            flex-wrap: wrap;
-            margin-top: 12px;
-        }
-
-        .metadata-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        .metadata-value {
-            color: #667eea;
-            font-weight: 500;
-        }
-
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-
-        .stat-card {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 20px;
-            transition: all 0.3s ease;
-        }
-
-        .stat-card:hover {
-            background: rgba(255, 255, 255, 0.08);
-            transform: translateY(-2px);
-        }
-
-        .stat-value {
-            font-size: 28px;
-            font-weight: 700;
-            color: #667eea;
-            margin-bottom: 4px;
-        }
-
-        .stat-label {
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        .filters {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 24px;
-        }
-
-        .filters-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            margin-bottom: 16px;
-        }
-
-        .filter-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .filter-group label {
-            font-size: 13px;
-            font-weight: 500;
-            color: rgba(255, 255, 255, 0.7);
-        }
-
-        input,
-        select {
-            padding: 10px 14px;
-            background: #2d3748;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 8px;
-            color: white;
-            font-size: 14px;
-            font-family: 'Inter', sans-serif;
-            transition: all 0.3s ease;
-        }
-
-        select option {
-            background: #2d3748;
-            color: white;
-        }
-
-        input:focus,
-        select:focus {
-            outline: none;
-            border-color: #667eea;
-            background: #374151;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.08);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.12);
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none !important;
-        }
-
-        /* Tables List */
+        .container { max-width: 1600px; }
         .tables-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-bottom: 24px;
+            display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 0;
         }
-
         .table-chip {
-            padding: 10px 16px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 8px;
+            padding: 9px 14px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
             cursor: pointer;
             transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .table-chip:hover {
-            background: rgba(102, 126, 234, 0.2);
-            border-color: rgba(102, 126, 234, 0.4);
-        }
-
-        .table-chip.active {
-            background: rgba(102, 126, 234, 0.3);
-            border-color: #667eea;
-            color: white;
-        }
-
-        .table-chip-name {
-            font-weight: 500;
-        }
-
-        .table-chip-count {
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.5);
-            background: rgba(255, 255, 255, 0.1);
-            padding: 2px 8px;
-            border-radius: 10px;
-        }
-
-        /* Data Table */
-        .data-container {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            overflow: hidden;
-        }
-
-        .data-header {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 16px 24px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .data-header h2 {
-            font-size: 18px;
-            font-weight: 600;
-        }
-
-        .table-wrapper {
-            overflow-x: auto;
-            max-height: 500px;
-            overflow-y: auto;
-        }
-
-        .table-wrapper::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-
-        .table-wrapper::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .table-wrapper::-webkit-scrollbar-thumb {
-            background: rgba(102, 126, 234, 0.5);
-            border-radius: 4px;
-        }
-
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
+            display: flex; align-items: center; gap: 8px;
             font-size: 13px;
         }
-
-        .data-table th {
-            background: rgba(102, 126, 234, 0.2);
-            padding: 12px 16px;
-            text-align: left;
-            font-weight: 600;
-            color: white;
-            position: sticky;
-            top: 0;
-            cursor: pointer;
-            white-space: nowrap;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        .table-chip:hover {
+            background: var(--accent-glow);
+            border-color: var(--border-hover);
         }
-
-        .data-table th:hover {
-            background: rgba(102, 126, 234, 0.3);
+        .table-chip.active {
+            background: rgba(245, 158, 11, 0.15);
+            border-color: var(--accent);
+            color: var(--accent-light);
         }
-
-        .data-table th .sort-icon {
-            margin-left: 4px;
-            opacity: 0.5;
+        .table-chip-name { font-weight: 600; }
+        .table-chip-count {
+            font-size: 11px; color: var(--text-muted);
+            background: rgba(255,255,255,0.05); padding: 2px 7px;
+            border-radius: 8px;
         }
-
-        .data-table th.sorted .sort-icon {
-            opacity: 1;
-        }
-
-        .data-table td {
-            padding: 12px 16px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            color: rgba(255, 255, 255, 0.85);
-            max-width: 300px;
+        .data-container {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
             overflow: hidden;
-            text-overflow: ellipsis;
+        }
+        .data-header {
+            background: var(--bg-elevated);
+            padding: 14px 22px;
+            border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .data-header h2 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 16px; font-weight: 600;
+        }
+        .table-wrapper {
+            overflow-x: auto; max-height: 500px; overflow-y: auto;
+        }
+        .table-wrapper::-webkit-scrollbar { width: 6px; height: 6px; }
+        .table-wrapper::-webkit-scrollbar-track { background: transparent; }
+        .table-wrapper::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.25); border-radius: 3px; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .data-table th {
+            background: var(--bg-deep);
+            padding: 10px 14px; text-align: left;
+            font-weight: 700; color: var(--accent);
+            position: sticky; top: 0; cursor: pointer;
             white-space: nowrap;
+            border-bottom: 2px solid var(--border-strong);
+            font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
         }
-
-        .data-table tr:hover td {
-            background: rgba(255, 255, 255, 0.03);
+        .data-table th:hover { background: var(--bg-base); }
+        .data-table th .sort-icon { margin-left: 4px; opacity: 0.4; }
+        .data-table th.sorted .sort-icon { opacity: 1; }
+        .data-table td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+            max-width: 300px; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap;
         }
-
-        .data-table td.cell-null {
-            color: rgba(255, 255, 255, 0.3);
-            font-style: italic;
-        }
-
-        .pagination {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 16px;
-            padding: 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .page-info {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 14px;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .spinner {
-            display: inline-block;
-            width: 40px;
-            height: 40px;
-            border: 3px solid rgba(255, 255, 255, 0.1);
-            border-top-color: #667eea;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin-bottom: 16px;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: rgba(255, 255, 255, 0.4);
-        }
-
-        .empty-state-icon {
-            font-size: 64px;
-            margin-bottom: 16px;
-        }
-
-        .toast {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            background: rgba(16, 185, 129, 0.9);
-            color: white;
-            padding: 16px 24px;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-            display: none;
-            z-index: 1000;
-        }
-
-        .toast.show {
-            display: block;
-        }
-
-        .toast.error {
-            background: rgba(239, 68, 68, 0.9);
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                padding: 16px;
-            }
-
-            .filters-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .navbar {
-                padding: 12px 16px;
-            }
-
-            .header h1 {
-                font-size: 24px;
-            }
-        }
+        .data-table tr:hover td { background: var(--accent-glow); }
+        .data-table td.cell-null { color: var(--text-muted); font-style: italic; }
     </style>
 </head>
 
@@ -495,28 +90,22 @@
 
     <nav class="navbar">
         <div class="logo-section">
-            <div class="logo-icon">🗄️</div>
+            <div class="logo-icon">&#128451;</div>
             <span class="logo-text">Database Viewer</span>
         </div>
         <div class="nav-buttons">
-            <button class="back-btn" onclick="window.location.href='/dashboard'">← Back to Dashboard</button>
-            <button class="logout-btn" onclick="logout()">🚪 Logout</button>
+            <button class="btn btn-secondary" onclick="window.location.href='/dashboard'">Back to Dashboard</button>
+            <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
     </nav>
 
     <div class="container">
 
         <div class="header">
-            <h1>🗄️ Database Viewer</h1>
-            <div class="metadata">
-                <div class="metadata-item">
-                    <span>📦 Database:</span>
-                    <span class="metadata-value">{{ db_name }}</span>
-                </div>
-                <div class="metadata-item">
-                    <span>🌍 Region:</span>
-                    <span class="metadata-value">{{ region }}</span>
-                </div>
+            <h1>Database Viewer</h1>
+            <div class="header-meta">
+                <span>Database: <strong>{{ db_name }}</strong></span>
+                <span>Region: <strong>{{ region }}</strong></span>
             </div>
         </div>
 
@@ -541,7 +130,7 @@
 
         <!-- Tables List -->
         <div class="filters">
-            <h3 style="margin-bottom: 16px; font-size: 16px; font-weight: 600;">📋 Select a Table</h3>
+            <h3 style="margin-bottom: 16px; font-size: 16px; font-weight: 600;">Select a Table</h3>
             <div class="tables-list" id="tablesList">
                 <div class="loading">
                     <div class="spinner"></div>
@@ -550,29 +139,25 @@
             </div>
         </div>
 
-        <!-- Filters -->
+        <!-- Data Filters -->
         <div class="filters" id="dataFilters" style="display: none;">
             <div class="filters-grid">
                 <div class="filter-group">
-                    <label>🔍 Search</label>
-                    <input type="text" id="searchInput" placeholder="Search in all columns...">
+                    <label>Search</label>
+                    <input type="text" id="searchInput" class="filter-input" placeholder="Search in all columns...">
                 </div>
             </div>
             <div class="action-buttons">
-                <button class="btn btn-primary" onclick="fetchTableData()">
-                    🔄 Refresh
-                </button>
-                <button class="btn btn-secondary" onclick="clearSearch()">
-                    ✖️ Clear Search
-                </button>
+                <button class="btn btn-primary" onclick="fetchTableData()">Refresh</button>
+                <button class="btn btn-secondary" onclick="clearSearch()">Clear Search</button>
             </div>
         </div>
 
         <!-- Data Table -->
         <div class="data-container" id="dataContainer" style="display: none;">
             <div class="data-header">
-                <h2 id="tableTitle">📊 Table Data</h2>
-                <span id="rowCount">Loading...</span>
+                <h2 id="tableTitle">Table Data</h2>
+                <span id="rowCount" style="color: var(--text-muted); font-size: 13px;">Loading...</span>
             </div>
             <div class="table-wrapper">
                 <table class="data-table" id="dataTable">
@@ -581,13 +166,9 @@
                 </table>
             </div>
             <div class="pagination">
-                <button class="btn btn-secondary" id="prevBtn" onclick="previousPage()" disabled>
-                    ← Previous
-                </button>
+                <button class="btn btn-secondary" id="prevBtn" onclick="previousPage()" disabled>Previous</button>
                 <span class="page-info">Page <span id="pageNumber">1</span> of <span id="totalPagesInfo">1</span></span>
-                <button class="btn btn-secondary" id="nextBtn" onclick="nextPage()" disabled>
-                    Next →
-                </button>
+                <button class="btn btn-secondary" id="nextBtn" onclick="nextPage()" disabled>Next</button>
             </div>
         </div>
     </div>
@@ -654,7 +235,7 @@
                 showToast('Error: ' + error.message, true);
                 document.getElementById('tablesList').innerHTML = `
                     <div class="empty-state">
-                        <div class="empty-state-icon">❌</div>
+                        <div class="empty-state-icon">&#10060;</div>
                         <div>Error loading tables</div>
                         <div style="margin-top: 8px; font-size: 12px; max-width: 500px; word-break: break-word;">${escapeHtml(error.message)}</div>
                     </div>
@@ -668,7 +249,7 @@
             if (tables.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
-                        <div class="empty-state-icon">📭</div>
+                        <div class="empty-state-icon">&#128237;</div>
                         <div>No tables found</div>
                     </div>
                 `;
@@ -679,7 +260,7 @@
             tables.forEach(table => {
                 html += `
                     <div class="table-chip" onclick="selectTable('${table.name}')" id="chip-${table.name}">
-                        <span class="table-chip-name">📋 ${table.name}</span>
+                        <span class="table-chip-name">${table.name}</span>
                         <span class="table-chip-count">${table.row_count.toLocaleString()} rows</span>
                     </div>
                 `;
@@ -689,7 +270,6 @@
         }
 
         function selectTable(tableName) {
-            // Update UI
             document.querySelectorAll('.table-chip').forEach(chip => {
                 chip.classList.remove('active');
             });
@@ -702,7 +282,7 @@
 
             document.getElementById('dataFilters').style.display = 'block';
             document.getElementById('dataContainer').style.display = 'block';
-            document.getElementById('tableTitle').textContent = `📊 ${tableName}`;
+            document.getElementById('tableTitle').textContent = tableName;
 
             fetchTableData();
         }
@@ -759,7 +339,7 @@
                 document.getElementById('tableBody').innerHTML = `
                     <tr><td colspan="100">
                         <div class="empty-state">
-                            <div class="empty-state-icon">❌</div>
+                            <div class="empty-state-icon">&#10060;</div>
                             <div>Error loading data</div>
                         </div>
                     </td></tr>
@@ -768,11 +348,10 @@
         }
 
         function renderTableData(data) {
-            // Render header
             let headerHtml = '<tr>';
             data.columns.forEach(col => {
                 const isSorted = orderBy === col;
-                const sortIcon = isSorted ? (orderDir === 'ASC' ? '↑' : '↓') : '↕';
+                const sortIcon = isSorted ? (orderDir === 'ASC' ? '&#9650;' : '&#9660;') : '&#8693;';
                 headerHtml += `
                     <th class="${isSorted ? 'sorted' : ''}" onclick="sortBy('${col}')">
                         ${col} <span class="sort-icon">${sortIcon}</span>
@@ -782,12 +361,11 @@
             headerHtml += '</tr>';
             document.getElementById('tableHead').innerHTML = headerHtml;
 
-            // Render body
             if (data.rows.length === 0) {
                 document.getElementById('tableBody').innerHTML = `
                     <tr><td colspan="${data.columns.length}">
                         <div class="empty-state">
-                            <div class="empty-state-icon">📭</div>
+                            <div class="empty-state-icon">&#128237;</div>
                             <div>No data found</div>
                         </div>
                     </td></tr>
@@ -873,6 +451,7 @@
             currentPage = 1;
             fetchTableData();
         }, 500));
+
         // Initial load
         fetchTables();
     </script>

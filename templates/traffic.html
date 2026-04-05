@@ -6,474 +6,107 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Traffic Analytics - Intent Detection</title>
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Nunito+Sans:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
         rel="stylesheet">
+    <link rel="stylesheet" href="/static/hearth.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #e4e4e4;
-            min-height: 100vh;
-        }
-
-        /* Navigation */
-        .navbar {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 16px 32px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .logo-section {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .logo-icon {
-            font-size: 24px;
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .logo-text {
-            font-size: 20px;
-            font-weight: 700;
-            color: white;
-        }
-
-        .nav-buttons {
-            display: flex;
-            gap: 12px;
-        }
-
-        .nav-btn {
-            padding: 10px 20px;
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            color: white;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            text-decoration: none;
-        }
-
-        .nav-btn:hover {
-            background: rgba(255, 255, 255, 0.12);
-            transform: translateY(-2px);
-        }
-
-        .logout-btn {
-            background: rgba(239, 68, 68, 0.2);
-            border: 1px solid rgba(239, 68, 68, 0.4);
-            color: #ef4444;
-        }
-
-        .logout-btn:hover {
-            background: rgba(239, 68, 68, 0.3);
-        }
-
-        /* Main Container */
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 32px;
-        }
-
-        /* Header Section */
-        .header {
-            margin-bottom: 32px;
-        }
-
-        .header h1 {
-            font-size: 32px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .metadata {
-            display: flex;
-            gap: 24px;
-            flex-wrap: wrap;
-            margin-top: 12px;
-        }
-
-        .metadata-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        .metadata-value {
-            color: #667eea;
-            font-weight: 500;
-        }
-
-        /* Time Range Buttons */
         .time-range-section {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            padding: 24px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            padding: 22px;
             margin-bottom: 24px;
         }
-
         .time-range-label {
-            font-size: 14px;
-            font-weight: 500;
-            color: rgba(255, 255, 255, 0.7);
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
             margin-bottom: 12px;
         }
-
         .time-range-buttons {
             display: flex;
-            gap: 12px;
+            gap: 10px;
             flex-wrap: wrap;
         }
-
         .time-btn {
-            padding: 12px 24px;
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            color: white;
-            border-radius: 10px;
+            padding: 10px 20px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            border-radius: var(--radius-md);
             cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s ease;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'Nunito Sans', sans-serif;
+            transition: all var(--transition);
         }
-
         .time-btn:hover {
-            background: rgba(255, 255, 255, 0.12);
-            transform: translateY(-2px);
+            background: var(--accent-glow);
+            border-color: var(--border-hover);
+            color: var(--text-primary);
         }
-
         .time-btn.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
             border-color: transparent;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            color: var(--bg-deep);
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
+            font-weight: 700;
         }
-
-        /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 16px;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 14px;
             margin-bottom: 24px;
         }
-
-        .stat-card {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 20px;
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-
-        .stat-card:hover {
-            background: rgba(255, 255, 255, 0.08);
-            transform: translateY(-2px);
-        }
-
-        .stat-card.send_money {
-            border-left: 4px solid #10b981;
-        }
-
-        .stat-card.pay_bill {
-            border-left: 4px solid #3b82f6;
-        }
-
-        .stat-card.mobile_topup {
-            border-left: 4px solid #f59e0b;
-        }
-
-        .stat-card.download_statement {
-            border-left: 4px solid #8b5cf6;
-        }
-
-        .stat-card.unknown {
-            border-left: 4px solid #6b7280;
-        }
-
-        .stat-card.total {
-            border-left: 4px solid #ec4899;
-        }
-
-        .stat-value {
-            font-size: 32px;
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
-
-        .stat-card.send_money .stat-value {
-            color: #10b981;
-        }
-
-        .stat-card.pay_bill .stat-value {
-            color: #3b82f6;
-        }
-
-        .stat-card.mobile_topup .stat-value {
-            color: #f59e0b;
-        }
-
-        .stat-card.download_statement .stat-value {
-            color: #8b5cf6;
-        }
-
-        .stat-card.unknown .stat-value {
-            color: #6b7280;
-        }
-
-        .stat-card.total .stat-value {
-            color: #ec4899;
-        }
-
-        .stat-label {
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.6);
-            text-transform: capitalize;
-        }
-
-        .stat-percentage {
-            font-size: 14px;
-            font-weight: 400;
-            opacity: 0.7;
-        }
-
-        /* Chart Container */
+        .stat-card.send_money { border-left: 3px solid #34d399; }
+        .stat-card.pay_bill { border-left: 3px solid #60a5fa; }
+        .stat-card.mobile_topup { border-left: 3px solid #fbbf24; }
+        .stat-card.download_statement { border-left: 3px solid #a78bfa; }
+        .stat-card.unknown { border-left: 3px solid #9ca3af; }
+        .stat-card.total { border-left: 3px solid #f472b6; }
+        .stat-card.send_money .stat-value { color: #34d399; }
+        .stat-card.pay_bill .stat-value { color: #60a5fa; }
+        .stat-card.mobile_topup .stat-value { color: #fbbf24; }
+        .stat-card.download_statement .stat-value { color: #a78bfa; }
+        .stat-card.unknown .stat-value { color: #9ca3af; }
+        .stat-card.total .stat-value { color: #f472b6; }
+        .stat-percentage { font-size: 13px; font-weight: 400; opacity: 0.7; }
         .chart-container {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
             padding: 24px;
             margin-bottom: 24px;
         }
-
         .chart-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
-
         .chart-title {
-            font-size: 18px;
-            font-weight: 600;
-            color: white;
+            font-family: 'Outfit', sans-serif;
+            font-size: 16px; font-weight: 600;
         }
-
         .chart-subtitle {
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.5);
-            margin-top: 4px;
+            font-size: 12px; color: var(--text-muted); margin-top: 4px;
         }
-
-        .chart-wrapper {
-            position: relative;
-            height: 400px;
-            width: 100%;
-        }
-
-        /* Legend */
+        .chart-wrapper { position: relative; height: 400px; width: 100%; }
         .custom-legend {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 16px;
-            justify-content: center;
-            margin-top: 20px;
-            padding-top: 16px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex; flex-wrap: wrap; gap: 14px; justify-content: center;
+            margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border);
         }
-
         .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.7);
+            display: flex; align-items: center; gap: 6px;
+            font-size: 12px; color: var(--text-secondary);
         }
-
-        .legend-color {
-            width: 16px;
-            height: 16px;
-            border-radius: 4px;
-        }
-
-        /* Loading */
-        .loading {
-            text-align: center;
-            padding: 60px;
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .spinner {
-            display: inline-block;
-            width: 48px;
-            height: 48px;
-            border: 4px solid rgba(255, 255, 255, 0.1);
-            border-top-color: #667eea;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin-bottom: 16px;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        /* Toast */
-        .toast {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            background: rgba(16, 185, 129, 0.9);
-            color: white;
-            padding: 16px 24px;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-            display: none;
-            animation: slideUp 0.3s ease-out;
-            z-index: 1000;
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .toast.show {
-            display: block;
-        }
-
-        /* Responsive */
+        .legend-color { width: 14px; height: 14px; border-radius: 4px; }
         @media (max-width: 768px) {
-            .container {
-                padding: 16px;
-            }
-
-            .navbar {
-                padding: 12px 16px;
-            }
-
-            .header h1 {
-                font-size: 24px;
-            }
-
-            .chart-wrapper {
-                height: 300px;
-            }
-
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .custom-range-container {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .custom-range-input,
-            .custom-range-unit {
-                width: 100%;
-            }
-        }
-
-        /* Custom Time Range UI */
-        .custom-range-container {
-            display: none;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 16px;
-            background: rgba(102, 126, 234, 0.1);
-            border: 1px solid rgba(102, 126, 234, 0.3);
-            border-radius: 10px;
-            margin-top: 12px;
-        }
-
-        .custom-range-container.active {
-            display: flex;
-            flex-wrap: wrap;
-        }
-
-        .custom-range-label {
-            font-size: 13px;
-            font-weight: 500;
-            color: #667eea;
-        }
-
-        .custom-range-input {
-            width: 80px;
-            padding: 8px 12px;
-            text-align: center;
-            background: #2d3748;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 8px;
-            color: white;
-            font-size: 14px;
-        }
-
-        .custom-range-unit {
-            padding: 8px 12px;
-            min-width: 100px;
-            background: #2d3748;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 8px;
-            color: white;
-            font-size: 14px;
-        }
-
-        .btn-apply-custom {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .btn-apply-custom:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            .chart-wrapper { height: 300px; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
 </head>
@@ -481,85 +114,79 @@
 <body>
     <nav class="navbar">
         <div class="logo-section">
-            <div class="logo-icon">📈</div>
+            <div class="logo-icon">&#9636;</div>
             <span class="logo-text">Traffic Analytics</span>
         </div>
         <div class="nav-buttons">
-            <a href="/requests" class="nav-btn">📊 Requests</a>
-            <a href="/dashboard" class="nav-btn">🖥️ Dashboard</a>
-            <button class="nav-btn logout-btn" onclick="logout()">🚪 Logout</button>
+            <a href="/requests" class="nav-btn">Requests</a>
+            <a href="/dashboard" class="nav-btn">Dashboard</a>
+            <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
     </nav>
 
     <div class="container">
         <div class="header">
-            <h1>📈 Intent Traffic Analytics</h1>
-            <div class="metadata">
-                <div class="metadata-item">
-                    <span>📁 Log Group:</span>
-                    <span class="metadata-value">{{ log_group }}</span>
-                </div>
-                <div class="metadata-item">
-                    <span>🌍 Region:</span>
-                    <span class="metadata-value">{{ region }}</span>
-                </div>
+            <h1>Intent Traffic Analytics</h1>
+            <div class="header-meta">
+                <span>Log Group: <strong>{{ log_group }}</strong></span>
+                <span>Region: <strong>{{ region }}</strong></span>
             </div>
         </div>
 
         <div class="time-range-section">
-            <div class="time-range-label">⏰ Select Time Range</div>
+            <div class="time-range-label">Select Time Range</div>
             <div class="time-range-buttons">
-                <button class="time-btn active" data-hours="1">Last 1 Hour</button>
-                <button class="time-btn" data-hours="6">Last 6 Hours</button>
-                <button class="time-btn" data-hours="24">Last 24 Hours</button>
-                <button class="time-btn" data-hours="48">Last 2 Days</button>
-                <button class="time-btn" data-hours="168">Last 7 Days</button>
-                <button class="time-btn" data-hours="720">Last 1 Month</button>
-                <button class="time-btn" data-hours="custom">⏱️ Custom</button>
+                <button class="time-btn active" data-hours="1">1h</button>
+                <button class="time-btn" data-hours="6">6h</button>
+                <button class="time-btn" data-hours="24">24h</button>
+                <button class="time-btn" data-hours="48">2d</button>
+                <button class="time-btn" data-hours="168">7d</button>
+                <button class="time-btn" data-hours="720">1 Month</button>
+                <button class="time-btn" data-hours="custom">Custom</button>
             </div>
             <div class="custom-range-container" id="customRangeContainer">
-                <span class="custom-range-label">⏱️ Custom Range:</span>
+                <label class="custom-range-label">Custom Range:</label>
                 <input type="number" class="custom-range-input" id="customRangeValue" min="1" value="1"
                     placeholder="Value">
                 <select class="custom-range-unit" id="customRangeUnit">
                     <option value="hours">Hours</option>
                     <option value="days">Days</option>
                 </select>
-                <button class="btn-apply-custom" onclick="applyCustomRange()">Apply</button>
+                <button class="btn btn-apply-custom" onclick="applyCustomRange()">Apply</button>
             </div>
         </div>
 
         <div class="stats-grid" id="statsGrid">
             <div class="stat-card send_money">
                 <div class="stat-value" id="stat-send_money">-</div>
-                <div class="stat-label">💸 Send Money</div>
+                <div class="stat-label">Send Money</div>
             </div>
             <div class="stat-card pay_bill">
                 <div class="stat-value" id="stat-pay_bill">-</div>
-                <div class="stat-label">📄 Pay Bill</div>
+                <div class="stat-label">Pay Bill</div>
             </div>
             <div class="stat-card mobile_topup">
                 <div class="stat-value" id="stat-mobile_topup">-</div>
-                <div class="stat-label">📱 Mobile Topup</div>
+                <div class="stat-label">Mobile Topup</div>
             </div>
             <div class="stat-card download_statement">
                 <div class="stat-value" id="stat-download_statement">-</div>
-                <div class="stat-label">📥 Download Statement</div>
+                <div class="stat-label">Download Statement</div>
             </div>
             <div class="stat-card unknown">
                 <div class="stat-value" id="stat-unknown">-</div>
-                <div class="stat-label">❓ Unknown</div>
+                <div class="stat-label">Unknown</div>
             </div>
             <div class="stat-card total">
                 <div class="stat-value" id="stat-total">-</div>
-                <div class="stat-label">📊 Total Requests</div>
+                <div class="stat-label">Total Requests</div>
             </div>
         </div>
 
         <div class="chart-container">
             <div class="chart-header">
                 <div>
-                    <div class="chart-title">📊 Intent Requests Over Time</div>
+                    <div class="chart-title">Intent Requests Over Time</div>
                     <div class="chart-subtitle" id="chartSubtitle">Showing data for the last 1 hour</div>
                 </div>
             </div>
@@ -568,23 +195,23 @@
             </div>
             <div class="custom-legend">
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #10b981;"></div>
+                    <div class="legend-color" style="background: #34d399;"></div>
                     <span>Send Money</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #3b82f6;"></div>
+                    <div class="legend-color" style="background: #60a5fa;"></div>
                     <span>Pay Bill</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #f59e0b;"></div>
+                    <div class="legend-color" style="background: #fbbf24;"></div>
                     <span>Mobile Topup</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #8b5cf6;"></div>
+                    <div class="legend-color" style="background: #a78bfa;"></div>
                     <span>Download Statement</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #6b7280;"></div>
+                    <div class="legend-color" style="background: #9ca3af;"></div>
                     <span>Unknown</span>
                 </div>
             </div>
@@ -597,6 +224,8 @@
         const token = localStorage.getItem('access_token');
         let trafficChart = null;
         let currentHours = 1;
+        let currentAbortController = null;
+        let isLoading = false;
 
         // Redirect if no token
         if (!token) {
@@ -630,13 +259,13 @@
             return true;
         }
 
-        // Intent colors
+        // Intent colors (updated palette)
         const intentColors = {
-            send_money: { bg: 'rgba(16, 185, 129, 0.2)', border: '#10b981' },
-            pay_bill: { bg: 'rgba(59, 130, 246, 0.2)', border: '#3b82f6' },
-            mobile_topup: { bg: 'rgba(245, 158, 11, 0.2)', border: '#f59e0b' },
-            download_statement: { bg: 'rgba(139, 92, 246, 0.2)', border: '#8b5cf6' },
-            unknown: { bg: 'rgba(107, 114, 128, 0.2)', border: '#6b7280' }
+            send_money: { bg: 'rgba(52, 211, 153, 0.2)', border: '#34d399' },
+            pay_bill: { bg: 'rgba(96, 165, 250, 0.2)', border: '#60a5fa' },
+            mobile_topup: { bg: 'rgba(251, 191, 36, 0.2)', border: '#fbbf24' },
+            download_statement: { bg: 'rgba(167, 139, 250, 0.2)', border: '#a78bfa' },
+            unknown: { bg: 'rgba(156, 163, 175, 0.2)', border: '#9ca3af' }
         };
 
         const intentLabels = {
@@ -647,14 +276,9 @@
             unknown: 'Unknown'
         };
 
-        // AbortController for cancelling previous requests
-        let currentAbortController = null;
-        let isLoading = false;
-
         // Show loading state
         function showLoading() {
             isLoading = true;
-            // Update stat cards to show loading
             ['send_money', 'pay_bill', 'mobile_topup', 'download_statement', 'unknown', 'total'].forEach(id => {
                 const el = document.getElementById(`stat-${id}`);
                 if (el) el.textContent = '...';
@@ -704,10 +328,9 @@
                 updateStats(data.totals, data.total_events);
                 updateChart(data);
                 updateSubtitle(hours);
-                showToast('✓ Traffic data refreshed (PKT time)');
+                showToast('Traffic data refreshed (PKT time)');
 
             } catch (error) {
-                // Don't show error for aborted requests
                 if (error.name === 'AbortError') {
                     console.log('Request cancelled');
                     return;
@@ -761,7 +384,7 @@
                 pointRadius: 4,
                 pointHoverRadius: 6,
                 pointBackgroundColor: intentColors[intent].border,
-                pointBorderColor: '#fff',
+                pointBorderColor: 'var(--bg-deep)',
                 pointBorderWidth: 2
             }));
 
@@ -784,21 +407,25 @@
                     },
                     plugins: {
                         legend: {
-                            display: false // Using custom legend
+                            display: false
                         },
                         tooltip: {
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            titleColor: '#fff',
-                            bodyColor: '#fff',
+                            backgroundColor: 'rgba(26, 21, 18, 0.95)',
+                            titleColor: '#fef3c7',
+                            bodyColor: '#fef3c7',
                             padding: 12,
                             cornerRadius: 8,
                             displayColors: true,
+                            borderColor: 'rgba(217, 119, 6, 0.25)',
+                            borderWidth: 1,
                             titleFont: {
                                 size: 14,
-                                weight: 'bold'
+                                weight: 'bold',
+                                family: 'Outfit'
                             },
                             bodyFont: {
-                                size: 13
+                                size: 13,
+                                family: 'Nunito Sans'
                             },
                             callbacks: {
                                 title: function (context) {
@@ -813,35 +440,38 @@
                     scales: {
                         x: {
                             grid: {
-                                color: 'rgba(255, 255, 255, 0.05)'
+                                color: 'rgba(217, 119, 6, 0.06)'
                             },
                             ticks: {
-                                color: 'rgba(255, 255, 255, 0.6)',
+                                color: 'rgba(254, 243, 199, 0.45)',
                                 maxRotation: 45,
                                 minRotation: 0,
                                 font: {
-                                    size: 11
+                                    size: 11,
+                                    family: 'Nunito Sans'
                                 }
                             }
                         },
                         y: {
                             beginAtZero: true,
                             grid: {
-                                color: 'rgba(255, 255, 255, 0.05)'
+                                color: 'rgba(217, 119, 6, 0.06)'
                             },
                             ticks: {
-                                color: 'rgba(255, 255, 255, 0.6)',
+                                color: 'rgba(254, 243, 199, 0.45)',
                                 stepSize: 1,
                                 font: {
-                                    size: 11
+                                    size: 11,
+                                    family: 'Nunito Sans'
                                 }
                             },
                             title: {
                                 display: true,
                                 text: 'Number of Requests',
-                                color: 'rgba(255, 255, 255, 0.6)',
+                                color: 'rgba(254, 243, 199, 0.45)',
                                 font: {
-                                    size: 12
+                                    size: 12,
+                                    family: 'Outfit'
                                 }
                             }
                         }
@@ -853,17 +483,14 @@
         // Time range button handlers
         document.querySelectorAll('.time-btn').forEach(btn => {
             btn.addEventListener('click', function () {
-                // Update active button
                 document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
 
                 const hoursValue = this.dataset.hours;
 
                 if (hoursValue === 'custom') {
-                    // Show custom range UI
                     document.getElementById('customRangeContainer').classList.add('active');
                 } else {
-                    // Hide custom range UI and fetch data
                     document.getElementById('customRangeContainer').classList.remove('active');
                     const hours = parseInt(hoursValue);
                     fetchTrafficData(hours);
@@ -881,16 +508,14 @@
                 return;
             }
 
-            // Convert to hours
             const hours = unit === 'days' ? value * 24 : value;
 
             fetchTrafficData(hours);
 
-            // Update subtitle with custom range
             const subtitleEl = document.getElementById('chartSubtitle');
             subtitleEl.textContent = `Showing data for the last ${value} ${unit}`;
 
-            showToast(`✓ Showing traffic for last ${value} ${unit}`);
+            showToast(`Showing traffic for last ${value} ${unit}`);
         }
 
         function logout() {
@@ -901,8 +526,8 @@
         function showToast(message, type = 'success') {
             const toast = document.getElementById('toast');
             toast.textContent = message;
-            toast.style.background = type === 'error' ?
-                'rgba(239, 68, 68, 0.9)' : 'rgba(16, 185, 129, 0.9)';
+            toast.style.background = type === 'error'
+                ? 'rgba(251, 113, 133, 0.95)' : 'rgba(52, 211, 153, 0.95)';
             toast.classList.add('show');
 
             setTimeout(() => {

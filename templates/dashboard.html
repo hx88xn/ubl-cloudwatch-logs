@@ -6,618 +6,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CloudWatch Logs Dashboard</title>
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Nunito+Sans:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
         rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #e4e4e4;
-            min-height: 100vh;
-        }
-
-        /* Navigation */
-        .navbar {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 16px 32px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .logo-section {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .logo-icon {
-            font-size: 24px;
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .logo-text {
-            font-size: 20px;
-            font-weight: 700;
-            color: white;
-        }
-
-        .logout-btn {
-            padding: 10px 20px;
-            background: rgba(239, 68, 68, 0.2);
-            border: 1px solid rgba(239, 68, 68, 0.4);
-            color: #ef4444;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-
-        .logout-btn:hover {
-            background: rgba(239, 68, 68, 0.3);
-            transform: translateY(-2px);
-        }
-
-        /* Main Container */
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 32px;
-        }
-
-        /* Header Section */
-        .header {
-            margin-bottom: 32px;
-        }
-
-        .header h1 {
-            font-size: 32px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .metadata {
-            display: flex;
-            gap: 24px;
-            flex-wrap: wrap;
-            margin-top: 12px;
-        }
-
-        .metadata-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        .metadata-value {
-            color: #667eea;
-            font-weight: 500;
-        }
-
-        /* Filters Section */
-        .filters {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 24px;
-            animation: slideIn 0.4s ease-out;
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-20px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .filters-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 16px;
-            margin-bottom: 16px;
-        }
-
-        .filter-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .filter-group label {
-            font-size: 13px;
-            font-weight: 500;
-            color: rgba(255, 255, 255, 0.7);
-        }
-
-        input,
-        select {
-            padding: 10px 14px;
-            background: #2d3748;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 8px;
-            color: white;
-            font-size: 14px;
-            font-family: 'Inter', sans-serif;
-            transition: all 0.3s ease;
-        }
-
-        select option {
-            background: #2d3748;
-            color: white;
-            padding: 10px;
-        }
-
-        input:focus,
-        select:focus {
-            outline: none;
-            border-color: #667eea;
-            background: #374151;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.08);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.12);
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none !important;
-        }
-
-        /* Stats */
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-
-        .stat-card {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 20px;
-            transition: all 0.3s ease;
-        }
-
-        .stat-card:hover {
-            background: rgba(255, 255, 255, 0.08);
-            transform: translateY(-2px);
-        }
-
-        .stat-value {
-            font-size: 28px;
-            font-weight: 700;
-            color: #667eea;
-            margin-bottom: 4px;
-        }
-
-        .stat-label {
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        /* Logs Container */
-        .logs-container {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            overflow: hidden;
-        }
-
-        .logs-header {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 16px 24px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logs-header h2 {
-            font-size: 18px;
-            font-weight: 600;
-        }
-
-        .logs-scroll {
-            max-height: 600px;
-            overflow-y: auto;
-            padding: 16px;
-        }
-
-        .logs-scroll::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .logs-scroll::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .logs-scroll::-webkit-scrollbar-thumb {
-            background: rgba(102, 126, 234, 0.5);
-            border-radius: 4px;
-        }
-
-        .logs-scroll::-webkit-scrollbar-thumb:hover {
-            background: rgba(102, 126, 234, 0.7);
-        }
-
-        .log-entry {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 8px;
-            padding: 14px 16px;
-            margin-bottom: 8px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 13px;
-            line-height: 1.6;
-            transition: all 0.2s ease;
-            animation: fadeInLog 0.3s ease-out;
-        }
-
-        @keyframes fadeInLog {
-            from {
-                opacity: 0;
-                transform: translateX(-10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-
-        .log-entry:hover {
-            background: rgba(255, 255, 255, 0.06);
-            border-color: rgba(102, 126, 234, 0.3);
-        }
-
-        .log-timestamp {
-            color: #667eea;
-            font-weight: 500;
-            margin-right: 12px;
-        }
-
-        .log-message {
-            color: rgba(255, 255, 255, 0.85);
-            word-break: break-word;
-        }
-
-        .uuid-group {
-            background: rgba(255, 255, 255, 0.05);
-            border: 2px solid rgba(102, 126, 234, 0.4);
-            border-radius: 12px;
-            margin-bottom: 16px;
-            animation: fadeInLog 0.3s ease-out;
-            overflow: hidden;
-        }
-
-        .uuid-group-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 14px 18px;
-            background: rgba(102, 126, 234, 0.2);
-            border-left: 4px solid #667eea;
-            cursor: pointer;
-            user-select: none;
-            transition: background 0.2s ease;
-        }
-
-        .uuid-group-header:hover {
-            background: rgba(102, 126, 234, 0.3);
-        }
-
-        .uuid-group-header-left {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .uuid-group-toggle {
-            font-size: 12px;
-            transition: transform 0.3s ease;
-            color: #667eea;
-        }
-
-        .uuid-group.expanded .uuid-group-toggle {
-            transform: rotate(90deg);
-        }
-
-        .uuid-group-title {
-            font-family: 'Inter', sans-serif;
-            font-size: 14px;
-            font-weight: 600;
-            color: #fbbf24;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .uuid-group-count {
-            background: rgba(251, 191, 36, 0.2);
-            color: #fbbf24;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .uuid-group-logs {
-            display: none;
-            flex-direction: column;
-            gap: 8px;
-            padding: 16px;
-            background: rgba(0, 0, 0, 0.1);
-            animation: slideDown 0.3s ease-out;
-        }
-
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                max-height: 0;
-            }
-
-            to {
-                opacity: 1;
-                max-height: 2000px;
-            }
-        }
-
-        .uuid-group.expanded .uuid-group-logs {
-            display: flex;
-        }
-
-        .uuid-group .log-entry {
-            margin-bottom: 0;
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: rgba(255, 255, 255, 0.4);
-        }
-
-        .empty-state-icon {
-            font-size: 64px;
-            margin-bottom: 16px;
-        }
-
-        /* Pagination */
-        .pagination {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 16px;
-            padding: 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .page-info {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 14px;
-        }
-
-        /* Loading */
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .spinner {
-            display: inline-block;
-            width: 40px;
-            height: 40px;
-            border: 3px solid rgba(255, 255, 255, 0.1);
-            border-top-color: #667eea;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin-bottom: 16px;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        /* Toast Notification */
-        .toast {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            background: rgba(16, 185, 129, 0.9);
-            color: white;
-            padding: 16px 24px;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-            display: none;
-            animation: slideUp 0.3s ease-out;
-            z-index: 1000;
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .toast.show {
-            display: block;
-        }
-
-        /* Custom Time Range UI */
-        .custom-range-container {
-            display: none;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 16px;
-            background: rgba(102, 126, 234, 0.1);
-            border: 1px solid rgba(102, 126, 234, 0.3);
-            border-radius: 10px;
-            margin-top: 12px;
-        }
-
-        .custom-range-container.active {
-            display: flex;
-            flex-wrap: wrap;
-        }
-
-        .custom-range-label {
-            font-size: 13px;
-            font-weight: 500;
-            color: #667eea;
-        }
-
-        .custom-range-input {
-            width: 80px;
-            padding: 8px 12px;
-            text-align: center;
-        }
-
-        .custom-range-unit {
-            padding: 8px 12px;
-            min-width: 100px;
-        }
-
-        .btn-apply-custom {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 8px 16px;
-            font-size: 13px;
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                padding: 16px;
-            }
-
-            .filters-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .navbar {
-                padding: 12px 16px;
-            }
-
-            .header h1 {
-                font-size: 24px;
-            }
-
-            .custom-range-container {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .custom-range-input,
-            .custom-range-unit {
-                width: 100%;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="/static/hearth.css">
 </head>
 
 <body>
-
     <nav class="navbar">
         <div class="logo-section">
-            <div class="logo-icon">☁️</div>
+            <div class="logo-icon">&#9729;</div>
             <span class="logo-text">CloudWatch Logs</span>
         </div>
-        <button class="logout-btn" onclick="logout()">🚪 Logout</button>
+        <button class="logout-btn" onclick="logout()">Logout</button>
     </nav>
 
-
     <div class="container">
-
         <div class="header">
-            <h1>📊 Logs Dashboard</h1>
-            <div class="metadata">
-                <div class="metadata-item">
-                    <span>📁 Log Group:</span>
-                    <span class="metadata-value">{{ log_group }}</span>
-                </div>
-                <div class="metadata-item">
-                    <span>🌍 Region:</span>
-                    <span class="metadata-value">{{ region }}</span>
-                </div>
+            <h1>Logs Dashboard</h1>
+            <div class="header-meta">
+                <span>Log Group: <strong>{{ log_group }}</strong></span>
+                <span>Region: <strong>{{ region }}</strong></span>
             </div>
         </div>
-
 
         <div class="stats">
             <div class="stat-card">
@@ -634,80 +44,63 @@
             </div>
         </div>
 
-
         <div class="filters">
             <div class="filters-grid">
                 <div class="filter-group">
-                    <label>🔍 Search Logs</label>
-                    <input type="text" id="searchInput" placeholder="Search by keyword...">
+                    <label>Search Logs</label>
+                    <input type="text" id="searchInput" class="filter-input" placeholder="Search logs...">
                 </div>
                 <div class="filter-group">
-                    <label>⏰ Time Range</label>
-                    <select id="timeRangeSelect">
-                        <option value="1">Last 1 hour</option>
-                        <option value="6">Last 6 hours</option>
-                        <option value="24">Last 24 hours</option>
-                        <option value="48">Last 2 days</option>
-                        <option value="168">Last 7 days</option>
-                        <option value="custom">⏱️ Custom...</option>
+                    <label>Time Range</label>
+                    <select id="timeRangeSelect" class="filter-select">
+                        <option value="1">Last 1 Hour</option>
+                        <option value="6">Last 6 Hours</option>
+                        <option value="24">Last 24 Hours</option>
+                        <option value="48">Last 2 Days</option>
+                        <option value="168">Last 7 Days</option>
+                        <option value="custom">Custom</option>
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label>📡 Log Source</label>
-                    <select id="logSourceSelect">
-                        <option value="cloudwatch" selected>AWS CloudWatch</option>
-                        <option value="grafana">Grafana Loki</option>
+                    <label>Log Source</label>
+                    <select id="logSourceSelect" class="filter-select">
+                        <option value="cloudwatch">CloudWatch</option>
+                        <option value="loki">Grafana Loki</option>
                     </select>
                 </div>
             </div>
             <div class="custom-range-container" id="customRangeContainer">
-                <span class="custom-range-label">⏱️ Custom Range:</span>
-                <input type="number" class="custom-range-input" id="customRangeValue" min="1" value="1"
-                    placeholder="Value">
-                <select class="custom-range-unit" id="customRangeUnit">
+                <label class="custom-range-label">Custom Range:</label>
+                <input type="number" id="customRangeValue" class="custom-range-input" min="1" value="1" placeholder="Value">
+                <select id="customRangeUnit" class="custom-range-unit">
                     <option value="hours">Hours</option>
                     <option value="days">Days</option>
                 </select>
                 <button class="btn btn-apply-custom" onclick="applyCustomRange()">Apply</button>
             </div>
-            <div class="action-buttons">
-                <button class="btn btn-primary" onclick="fetchLogs()">
-                    🔄 Refresh Logs
-                </button>
-                <button class="btn btn-secondary" onclick="clearFilters()">
-                    ✖️ Clear Filters
-                </button>
-                <button class="btn btn-secondary" onclick="exportLogs()">
-                    💾 Export
-                </button>
-                <button class="btn btn-primary" onclick="window.location.href='/app-logs'">
-                    📱 App Logs
-                </button>
-                <button class="btn btn-primary" onclick="window.location.href='/audio-files'">
-                    🎵 Audio Files
-                </button>
-                <button class="btn btn-primary" id="trafficBtn" style="display: none;"
-                    onclick="window.location.href='/traffic'">
-                    📈 Traffic
-                </button>
-                <button class="btn btn-primary" id="requestsBtn" style="display: none;"
-                    onclick="window.location.href='/requests'">
-                    📊 Requests
-                </button>
-                <button class="btn btn-primary" onclick="window.location.href='/summary'">
-                    📋 Summary
-                </button>
-                <button class="btn btn-primary" onclick="window.location.href='/daily-logs'">
-                    📅 Daily Logs
-                </button>
-            </div>
         </div>
 
+        <div class="action-buttons">
+            <button class="btn btn-primary" onclick="fetchLogs(1)">&#8635; Refresh</button>
+            <button class="btn btn-secondary" onclick="clearFilters()">&#10005; Clear Filters</button>
+            <button class="btn btn-secondary" onclick="exportLogs()">&#8615; Export</button>
+            <a href="/app-logs" class="btn btn-secondary">&#128196; App Logs</a>
+            <a href="/audio-files" class="btn btn-secondary">&#127925; Audio Files</a>
+            <a href="/traffic" class="btn btn-secondary" id="trafficBtn" style="display: none;">&#128666; Traffic</a>
+            <a href="/requests" class="btn btn-secondary" id="requestsBtn" style="display: none;">&#128202; Requests</a>
+            <a href="/summary" class="btn btn-secondary">&#128203; Summary</a>
+            <a href="/daily-logs" class="btn btn-secondary">&#128197; Daily Logs</a>
+            <a href="/database" class="btn btn-secondary">&#128451; Database</a>
+        </div>
 
         <div class="logs-container">
             <div class="logs-header">
-                <h2>📝 Log Entries</h2>
-                <span id="logCount">Loading...</span>
+                <span id="logCount">0 logs</span>
+                <div class="pagination">
+                    <button class="btn btn-secondary" id="prevBtn" onclick="previousPage()" style="display: none;">&#9664; Prev</button>
+                    <span class="page-info">Page <span id="pageNumber">1</span> of <span id="totalPagesDisplay">1</span></span>
+                    <button class="btn btn-secondary" id="nextBtn" onclick="nextPage()" style="display: none;">Next &#9654;</button>
+                </div>
             </div>
             <div class="logs-scroll" id="logsContainer">
                 <div class="loading">
@@ -715,39 +108,26 @@
                     <div>Loading logs...</div>
                 </div>
             </div>
-            <div class="pagination">
-                <button class="btn btn-secondary" id="prevBtn" onclick="previousPage()" disabled>
-                    ← Previous
-                </button>
-                <span class="page-info">Page <span id="pageNumber">1</span> of <span id="totalPages">1</span></span>
-                <button class="btn btn-secondary" id="nextBtn" onclick="nextPage()" disabled>
-                    Next →
-                </button>
-            </div>
         </div>
     </div>
-
 
     <div class="toast" id="toast"></div>
 
     <script>
-
         let currentPage = 1;
         let totalPages = 1;
         let allLogs = [];
-        let allLogsUnfiltered = [];  // Store unfiltered logs for client-side search
+        let allLogsUnfiltered = [];
         let isLoading = false;
         let searchDebounceTimer = null;
         const token = localStorage.getItem('access_token');
-        let currentAbortController = null;  // For cancelling previous requests
-        let customHours = null;  // Track custom time range in hours
-
+        let currentAbortController = null;
+        let customHours = null;
 
         if (!token) {
             window.location.href = '/login';
         }
 
-        // Check if user has access to dashboard (ubl-test-team is restricted)
         async function checkDashboardAccess() {
             try {
                 const response = await fetch('/api/user/me', {
@@ -759,7 +139,6 @@
                 if (response.ok) {
                     const userData = await response.json();
                     if (userData.role === 'ubl-test-team') {
-                        // Redirect ubl-test-team to app-logs instead
                         window.location.href = '/app-logs';
                         return false;
                     }
@@ -780,9 +159,7 @@
             return true;
         }
 
-        // Check access on page load
         checkDashboardAccess();
-
 
         function debounce(func, delay) {
             return function (...args) {
@@ -791,12 +168,8 @@
             };
         }
 
-        // Convert timestamp to Pakistan time (UTC+5)
         function toPakistanTime(timestamp) {
-            // timestamp is in milliseconds from the backend
             const date = new Date(timestamp);
-
-            // Format in Pakistan timezone (Asia/Karachi = UTC+5)
             const options = {
                 timeZone: 'Asia/Karachi',
                 year: 'numeric',
@@ -807,18 +180,14 @@
                 second: '2-digit',
                 hour12: false
             };
-
             const formatter = new Intl.DateTimeFormat('en-CA', options);
             const parts = formatter.formatToParts(date);
-
             const dateParts = {};
             parts.forEach(part => {
                 dateParts[part.type] = part.value;
             });
-
             return `${dateParts.year}-${dateParts.month}-${dateParts.day} ${dateParts.hour}:${dateParts.minute}:${dateParts.second}`;
         }
-
 
         function showLoading() {
             isLoading = true;
@@ -830,71 +199,51 @@
             `;
         }
 
-
         async function fetchLogs(page = 1, showLoadingState = true) {
-            // Cancel any previous request
             if (currentAbortController) {
                 currentAbortController.abort();
             }
-
-            // Create new AbortController for this request
             currentAbortController = new AbortController();
             const signal = currentAbortController.signal;
-
             const hours = customHours || document.getElementById('timeRangeSelect').value || '1';
             const search = document.getElementById('searchInput').value.trim();
-
-            // Fetch ALL logs at once to ensure proper UUID grouping (no pagination split)
             const fetchLimit = 500000;
             const fetchPageSize = 500000;
-
             currentPage = 1;
-
             if (showLoadingState) {
                 showLoading();
             }
-
             try {
                 const logSource = document.getElementById('logSourceSelect') ? document.getElementById('logSourceSelect').value : 'cloudwatch';
-                // Don't send search to backend - we'll filter client-side to preserve UUID groups
                 let url = `/api/logs?hours=${hours}&limit=${fetchLimit}&page=1&page_size=${fetchPageSize}&source=${logSource}`;
-
                 const response = await fetch(url, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     },
                     signal: signal
                 });
-
                 if (response.status === 401) {
                     localStorage.removeItem('access_token');
                     window.location.href = '/login';
                     return;
                 }
-
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-
                 const data = await response.json();
-                allLogsUnfiltered = data.logs;  // Store unfiltered logs
+                allLogsUnfiltered = data.logs;
                 allLogs = data.logs;
                 totalPages = 1;
-
                 displayLogs({ logs: allLogs });
                 updateStats({ logs: allLogs });
-
-                // Hide pagination since we're fetching all logs
                 const prevBtn = document.getElementById('prevBtn');
                 const nextBtn = document.getElementById('nextBtn');
                 const pageInfo = document.querySelector('.page-info');
                 if (prevBtn) prevBtn.style.display = 'none';
                 if (nextBtn) nextBtn.style.display = 'none';
                 if (pageInfo) pageInfo.textContent = `${data.logs?.length || 0} logs loaded`;
-
-                showToast('✓ Logs refreshed');
+                showToast('Logs refreshed');
             } catch (error) {
-                // Don't show error for aborted requests
                 if (error.name === 'AbortError') {
                     console.log('Request cancelled');
                     return;
@@ -902,43 +251,33 @@
                 console.error('Error fetching logs:', error);
                 document.getElementById('logsContainer').innerHTML = `
                     <div class="empty-state">
-                        <div class="empty-state-icon">⚠️</div>
+                        <div class="empty-state-icon">&#9888;</div>
                         <div>Error loading logs: ${error.message}</div>
                     </div>
                 `;
-                showToast('✗ Error fetching logs', 'error');
+                showToast('Error fetching logs', 'error');
             } finally {
                 isLoading = false;
             }
         }
 
-
         function displayLogs(data) {
             const container = document.getElementById('logsContainer');
             const searchQuery = document.getElementById('searchInput').value.trim().toLowerCase();
-
-            // Use allLogsUnfiltered for grouping to preserve entire UUID groups
             const logsToGroup = allLogsUnfiltered.length > 0 ? allLogsUnfiltered : (data.logs || []);
-
             if (!logsToGroup || logsToGroup.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
-                        <div class="empty-state-icon">📭</div>
+                        <div class="empty-state-icon">&#128237;</div>
                         <div>No logs found for the selected criteria</div>
                     </div>
                 `;
                 return;
             }
-
-            // First, group ALL logs by UUID (using unfiltered data)
             const uuidGroups = groupLogsByUUID(logsToGroup);
-
-            // If there's a search query, filter to show only groups where at least one log matches
             if (searchQuery) {
                 const filteredGroups = {};
                 const filteredNoUUIDLogs = [];
-
-                // Filter UUID groups - keep entire group if ANY log matches
                 Object.keys(uuidGroups.groups).forEach(uuid => {
                     const groupLogs = uuidGroups.groups[uuid];
                     const hasMatch = groupLogs.some(log =>
@@ -948,29 +287,22 @@
                         filteredGroups[uuid] = groupLogs;
                     }
                 });
-
-                // Filter non-UUID logs individually
                 uuidGroups.noUUIDLogs.forEach(log => {
                     if (log.message.toLowerCase().includes(searchQuery)) {
                         filteredNoUUIDLogs.push(log);
                     }
                 });
-
                 const filteredUuidGroups = { groups: filteredGroups, noUUIDLogs: filteredNoUUIDLogs };
-
                 if (Object.keys(filteredGroups).length === 0 && filteredNoUUIDLogs.length === 0) {
                     container.innerHTML = `
                         <div class="empty-state">
-                            <div class="empty-state-icon">🔍</div>
+                            <div class="empty-state-icon">&#128269;</div>
                             <div>No logs found matching "${searchQuery}"</div>
                         </div>
                     `;
                     return;
                 }
-
                 container.innerHTML = renderUUIDGroups(filteredUuidGroups);
-
-                // Update displayed count
                 const matchingLogsCount = Object.values(filteredGroups).flat().length + filteredNoUUIDLogs.length;
                 const pageInfo = document.querySelector('.page-info');
                 if (pageInfo) pageInfo.textContent = `${matchingLogsCount} logs in ${Object.keys(filteredGroups).length} groups`;
@@ -984,11 +316,10 @@
             const groups = {};
             const noUUIDLogs = [];
             const processedLogIds = new Set();
-
             logs.forEach((log, index) => {
                 const matches = [...log.message.matchAll(uuidRegex)];
                 if (matches && matches.length > 0) {
-                    const uuid = matches[0][1]; // Use first UUID found
+                    const uuid = matches[0][1];
                     if (!groups[uuid]) {
                         groups[uuid] = [];
                     }
@@ -996,27 +327,19 @@
                     processedLogIds.add(index);
                 }
             });
-
-            // Collect non-UUID logs
             logs.forEach((log, index) => {
                 if (!processedLogIds.has(index)) {
                     noUUIDLogs.push({ ...log, _index: index });
                 }
             });
-
-            // Sort logs within each UUID group by timestamp (newest first)
             Object.keys(groups).forEach(uuid => {
                 groups[uuid].sort((a, b) => b.timestamp - a.timestamp);
             });
-
             return { groups, noUUIDLogs };
         }
 
         function renderUUIDGroups(uuidGroups) {
-            // Create a timeline of items (UUID groups and individual non-UUID logs)
             const timelineItems = [];
-
-            // Add UUID groups with their most recent timestamp
             Object.keys(uuidGroups.groups).forEach(uuid => {
                 const logs = uuidGroups.groups[uuid];
                 const mostRecentTimestamp = logs[0]?.timestamp || 0;
@@ -1029,8 +352,6 @@
                     firstLogTime: firstLogTime
                 });
             });
-
-            // Add individual non-UUID logs
             uuidGroups.noUUIDLogs.forEach(log => {
                 timelineItems.push({
                     type: 'single-log',
@@ -1038,84 +359,59 @@
                     timestamp: log.timestamp
                 });
             });
-
-            // Sort all items by timestamp descending (newest first)
             timelineItems.sort((a, b) => b.timestamp - a.timestamp);
-
-            // Use progressive rendering for large datasets
             if (timelineItems.length > 100) {
                 return renderProgressively(timelineItems);
             }
-
-            // For small datasets, render immediately
             return renderItemsToHtml(timelineItems, 0, timelineItems.length);
         }
 
-        // Render items in batches to avoid blocking the UI
         function renderProgressively(timelineItems) {
             const container = document.getElementById('logsContainer');
             const batchSize = 50;
             let currentIndex = 0;
-
-            // Clear container and show initial count
             container.innerHTML = '';
-
             function renderBatch() {
                 const fragment = document.createDocumentFragment();
                 const tempDiv = document.createElement('div');
-
                 const endIndex = Math.min(currentIndex + batchSize, timelineItems.length);
                 tempDiv.innerHTML = renderItemsToHtml(timelineItems, currentIndex, endIndex);
-
                 while (tempDiv.firstChild) {
                     fragment.appendChild(tempDiv.firstChild);
                 }
-
                 container.appendChild(fragment);
                 currentIndex = endIndex;
-
-                // Update progress
                 const progress = Math.round((currentIndex / timelineItems.length) * 100);
                 const pageInfo = document.querySelector('.page-info');
                 if (pageInfo) {
                     pageInfo.textContent = `Rendering... ${progress}% (${currentIndex}/${timelineItems.length})`;
                 }
-
-                // Continue rendering if more items remain
                 if (currentIndex < timelineItems.length) {
                     requestAnimationFrame(renderBatch);
                 } else {
-                    // Done rendering
                     if (pageInfo) {
                         pageInfo.textContent = `${timelineItems.length} items loaded`;
                     }
                 }
             }
-
-            // Start progressive rendering
             requestAnimationFrame(renderBatch);
-
-            // Return empty since we're rendering progressively
             return '';
         }
 
-        // Helper function to render a range of items to HTML
         function renderItemsToHtml(timelineItems, startIndex, endIndex) {
             let html = '';
             const uuidPattern = /\[?[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\]?/g;
-
             for (let i = startIndex; i < endIndex; i++) {
                 const item = timelineItems[i];
-
                 if (item.type === 'uuid-group') {
                     const groupId = `uuid-group-${i}`;
                     html += `
                         <div class="uuid-group" id="${groupId}">
                             <div class="uuid-group-header" onclick="toggleUUIDGroup('${groupId}')">
                                 <div class="uuid-group-header-left">
-                                    <span class="uuid-group-toggle">▶</span>
+                                    <span class="uuid-group-toggle">&#9654;</span>
                                     <div class="uuid-group-title">
-                                        📅 ${item.firstLogTime}
+                                        ${item.firstLogTime}
                                     </div>
                                 </div>
                                 <div class="uuid-group-count">${item.logs.length} log${item.logs.length !== 1 ? 's' : ''}</div>
@@ -1143,14 +439,13 @@
                     `;
                 }
             }
-
             return html;
         }
 
         function renderUUIDGroupsFallback() {
             return `
                 <div class="empty-state">
-                    <div class="empty-state-icon">📭</div>
+                    <div class="empty-state-icon">&#128237;</div>
                     <div>No logs found</div>
                 </div>
             `;
@@ -1163,14 +458,11 @@
             }
         }
 
-
-
         function updateStats(data) {
             const totalLogsEl = document.getElementById('totalLogs');
             const currentPageEl = document.getElementById('currentPage');
             const timeRangeDisplayEl = document.getElementById('timeRangeDisplay');
             const logCountEl = document.getElementById('logCount');
-
             if (totalLogsEl) totalLogsEl.textContent = data.logs?.length || 0;
             if (currentPageEl) currentPageEl.textContent = '1';
             if (timeRangeDisplayEl) {
@@ -1178,7 +470,6 @@
             }
             if (logCountEl) logCountEl.textContent = `${data.logs?.length || 0} logs`;
         }
-
 
         function nextPage() {
             if (currentPage < totalPages) {
@@ -1192,13 +483,11 @@
             }
         }
 
-
         function goToPage(page) {
             if (page >= 1 && page <= totalPages) {
                 fetchLogs(page);
             }
         }
-
 
         function clearFilters() {
             document.getElementById('searchInput').value = '';
@@ -1209,17 +498,14 @@
             fetchLogs();
         }
 
-
         function exportLogs() {
             if (!allLogs || allLogs.length === 0) {
                 showToast('No logs to export', 'error');
                 return;
             }
-
             const blob = new Blob([
                 allLogs.map(log => `[${log.formatted_time}] ${log.message}`).join('\n')
             ], { type: 'text/plain' });
-
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -1228,29 +514,25 @@
             a.click();
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
-
-            showToast('✓ Logs exported');
+            showToast('Logs exported');
         }
-
 
         function logout() {
             localStorage.removeItem('access_token');
             window.location.href = '/login';
         }
 
-
         function showToast(message, type = 'success') {
             const toast = document.getElementById('toast');
             toast.textContent = message;
             toast.style.background = type === 'error' ?
-                'rgba(239, 68, 68, 0.9)' : 'rgba(16, 185, 129, 0.9)';
+                'rgba(251, 113, 133, 0.9)' : 'rgba(52, 211, 153, 0.9)';
+            toast.style.color = type === 'error' ? '#fff' : '#1a1512';
             toast.classList.add('show');
-
             setTimeout(() => {
                 toast.classList.remove('show');
             }, 2000);
         }
-
 
         function escapeHtml(text) {
             const div = document.createElement('div');
@@ -1258,13 +540,10 @@
             return div.innerHTML;
         }
 
-
-        // Apply client-side search filter (preserves UUID groups)
         function applySearchFilter() {
             if (allLogsUnfiltered.length > 0) {
                 displayLogs({ logs: allLogsUnfiltered });
             } else {
-                // No logs loaded yet, need to fetch first
                 fetchLogs(1);
             }
         }
@@ -1273,7 +552,6 @@
             currentPage = 1;
             applySearchFilter();
         }, 500);
-
 
         document.getElementById('searchInput').addEventListener('input', debouncedSearch);
 
@@ -1285,12 +563,10 @@
             }
         });
 
-
         document.getElementById('timeRangeSelect').addEventListener('change', (e) => {
             const customContainer = document.getElementById('customRangeContainer');
             if (e.target.value === 'custom') {
                 customContainer.classList.add('active');
-                // Don't fetch yet, wait for user to apply
             } else {
                 customContainer.classList.remove('active');
                 customHours = null;
@@ -1299,28 +575,21 @@
             }
         });
 
-        // Apply custom time range
         function applyCustomRange() {
             const value = parseInt(document.getElementById('customRangeValue').value) || 1;
             const unit = document.getElementById('customRangeUnit').value;
-
             if (value < 1) {
                 showToast('Please enter a valid number', 'error');
                 return;
             }
-
-            // Convert to hours
             customHours = unit === 'days' ? value * 24 : value;
-
-            // Update the display
             const timeRangeDisplay = document.getElementById('timeRangeDisplay');
             if (timeRangeDisplay) {
                 timeRangeDisplay.textContent = unit === 'days' ? `${value}d` : `${value}h`;
             }
-
             currentPage = 1;
             fetchLogs(1);
-            showToast(`✓ Showing logs for last ${value} ${unit}`);
+            showToast(`Showing logs for last ${value} ${unit}`);
         }
 
         const logSourceSelect = document.getElementById('logSourceSelect');
@@ -1330,7 +599,6 @@
                 fetchLogs(1);
             });
         }
-
 
         fetchLogs(1);
     </script>

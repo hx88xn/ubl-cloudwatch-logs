@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from datetime import timedelta
 from typing import Optional
 from contextlib import asynccontextmanager
@@ -219,6 +220,7 @@ app = FastAPI(title="CloudWatch Logs Viewer", version="1.0.0", lifespan=lifespan
 from starlette.middleware.gzip import GZipMiddleware
 app.add_middleware(GZipMiddleware, minimum_size=500)  # Compress responses > 500 bytes
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 @app.get("/", response_class=HTMLResponse)

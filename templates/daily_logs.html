@@ -5,168 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Daily Logs</title>
+    <link rel="stylesheet" href="/static/hearth.css">
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Nunito+Sans:wght@400;600;700&family=Fira+Code:wght@400;500&display=swap"
         rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #e4e4e4;
-            min-height: 100vh;
-        }
-
-        .navbar {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 16px 32px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .logo-section {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .logo-icon {
-            font-size: 24px;
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .logo-text {
-            font-size: 20px;
-            font-weight: 700;
-            color: white;
-        }
-
-        .nav-buttons {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .back-btn,
-        .logout-btn,
-        .btn {
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            border: none;
-        }
-
-        .back-btn,
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.08);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-        }
-
-        .logout-btn {
-            background: rgba(239, 68, 68, 0.2);
-            border: 1px solid rgba(239, 68, 68, 0.4);
-            color: #ef4444;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 32px;
-        }
-
-        .header {
-            margin-bottom: 32px;
-        }
-
-        .header h1 {
-            font-size: 32px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .metadata {
-            display: flex;
-            gap: 24px;
-            flex-wrap: wrap;
-            margin-top: 12px;
-        }
-
-        .metadata-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        .metadata-value {
-            color: #667eea;
-            font-weight: 500;
-        }
-
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-
-        .stat-card,
-        .filters,
-        .calendar-card,
-        .logs-container {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-        }
-
-        .stat-card {
-            padding: 20px;
-        }
-
-        .stat-value {
-            font-size: 28px;
-            font-weight: 700;
-            color: #667eea;
-            margin-bottom: 4px;
-        }
-
-        .stat-label {
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
         .calendar-layout {
             display: grid;
             grid-template-columns: minmax(280px, 360px) 1fr;
@@ -174,279 +17,52 @@
             margin-bottom: 24px;
         }
 
-        .calendar-card,
-        .filters {
-            padding: 24px;
+        .calendar-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            padding: 22px;
         }
 
-        .calendar-card h2,
-        .logs-header h2 {
-            font-size: 18px;
+        .calendar-card h2 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 16px;
             font-weight: 600;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
         }
 
         .calendar-card p {
-            color: rgba(255, 255, 255, 0.65);
-            font-size: 14px;
-            margin-bottom: 16px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            margin-bottom: 14px;
             line-height: 1.5;
         }
 
         .calendar-input {
             width: 100%;
-            padding: 14px 16px;
-            background: #2d3748;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 10px;
-            color: white;
+            padding: 12px 14px;
+            background: var(--bg-deep);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
             font-size: 15px;
-            font-family: 'Inter', sans-serif;
+            font-family: 'Nunito Sans', sans-serif;
         }
 
         .selected-date {
-            margin-top: 16px;
-            padding: 14px 16px;
-            border-radius: 12px;
-            background: rgba(102, 126, 234, 0.14);
-            border: 1px solid rgba(102, 126, 234, 0.28);
-            color: #dbe4ff;
-            font-size: 14px;
-        }
-
-        .filters-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 16px;
-            margin-bottom: 16px;
-        }
-
-        .filter-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .filter-group label {
+            margin-top: 14px;
+            padding: 12px 14px;
+            border-radius: var(--radius-md);
+            background: var(--accent-glow);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            color: var(--accent-light);
             font-size: 13px;
-            font-weight: 500;
-            color: rgba(255, 255, 255, 0.7);
-        }
-
-        input,
-        select {
-            padding: 10px 14px;
-            background: #2d3748;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 8px;
-            color: white;
-            font-size: 14px;
-            font-family: 'Inter', sans-serif;
-        }
-
-        select option {
-            background: #2d3748;
-            color: white;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .logs-header {
-            padding: 16px 24px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logs-scroll {
-            max-height: 600px;
-            overflow-y: auto;
-            padding: 16px;
-        }
-
-        .logs-scroll::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .logs-scroll::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .logs-scroll::-webkit-scrollbar-thumb {
-            background: rgba(102, 126, 234, 0.5);
-            border-radius: 4px;
-        }
-
-        .log-entry {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 8px;
-            padding: 14px 16px;
-            margin-bottom: 8px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 13px;
-            line-height: 1.6;
-        }
-
-        .log-timestamp {
-            color: #667eea;
-            font-weight: 500;
-            margin-right: 12px;
-        }
-
-        .log-message {
-            color: rgba(255, 255, 255, 0.85);
-            word-break: break-word;
-        }
-
-        .uuid-group {
-            background: rgba(255, 255, 255, 0.05);
-            border: 2px solid rgba(102, 126, 234, 0.4);
-            border-radius: 12px;
-            margin-bottom: 16px;
-            overflow: hidden;
-        }
-
-        .uuid-group-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 14px 18px;
-            background: rgba(102, 126, 234, 0.2);
-            border-left: 4px solid #667eea;
-            cursor: pointer;
-            user-select: none;
-        }
-
-        .uuid-group-header-left {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .uuid-group-toggle {
-            font-size: 12px;
-            transition: transform 0.3s ease;
-            color: #667eea;
-        }
-
-        .uuid-group.expanded .uuid-group-toggle {
-            transform: rotate(90deg);
-        }
-
-        .uuid-group-title {
-            font-size: 14px;
             font-weight: 600;
-            color: #fbbf24;
-        }
-
-        .uuid-group-count {
-            background: rgba(251, 191, 36, 0.2);
-            color: #fbbf24;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .uuid-group-logs {
-            display: none;
-            flex-direction: column;
-            gap: 8px;
-            padding: 16px;
-            background: rgba(0, 0, 0, 0.1);
-        }
-
-        .uuid-group.expanded .uuid-group-logs {
-            display: flex;
-        }
-
-        .uuid-group .log-entry {
-            margin-bottom: 0;
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .empty-state,
-        .loading {
-            text-align: center;
-            padding: 50px 20px;
-            color: rgba(255, 255, 255, 0.45);
-        }
-
-        .empty-state-icon {
-            font-size: 56px;
-            margin-bottom: 16px;
-        }
-
-        .spinner {
-            display: inline-block;
-            width: 40px;
-            height: 40px;
-            border: 3px solid rgba(255, 255, 255, 0.1);
-            border-top-color: #667eea;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin-bottom: 16px;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        .toast {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            background: rgba(16, 185, 129, 0.9);
-            color: white;
-            padding: 16px 24px;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-            display: none;
-            z-index: 1000;
-        }
-
-        .toast.show {
-            display: block;
         }
 
         @media (max-width: 900px) {
             .calendar-layout {
                 grid-template-columns: 1fr;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                padding: 16px;
-            }
-
-            .navbar {
-                padding: 12px 16px;
-                align-items: flex-start;
-                flex-direction: column;
-                gap: 12px;
-            }
-
-            .nav-buttons {
-                width: 100%;
-                flex-wrap: wrap;
-            }
-
-            .back-btn,
-            .logout-btn {
-                width: 100%;
-            }
-
-            .header h1 {
-                font-size: 24px;
             }
         }
     </style>
@@ -455,25 +71,25 @@
 <body>
     <nav class="navbar">
         <div class="logo-section">
-            <div class="logo-icon">📅</div>
+            <div class="logo-icon">&#x1F4C5;</div>
             <span class="logo-text">Daily Logs</span>
         </div>
         <div class="nav-buttons">
-            <button class="back-btn" onclick="window.location.href='/dashboard'">← Dashboard</button>
-            <button class="logout-btn" onclick="logout()">🚪 Logout</button>
+            <button class="back-btn" onclick="window.location.href='/dashboard'">&larr; Dashboard</button>
+            <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
     </nav>
 
     <div class="container">
         <div class="header">
-            <h1>📅 Logs By Day</h1>
+            <h1><span class="accent-text">Logs By Day</span></h1>
             <div class="metadata">
                 <div class="metadata-item">
-                    <span>📁 Log Group:</span>
+                    <span>Log Group:</span>
                     <span class="metadata-value">{{ log_group }}</span>
                 </div>
                 <div class="metadata-item">
-                    <span>🌍 Region:</span>
+                    <span>Region:</span>
                     <span class="metadata-value">{{ region }}</span>
                 </div>
             </div>
@@ -505,11 +121,11 @@
             <div class="filters">
                 <div class="filters-grid">
                     <div class="filter-group">
-                        <label>🔍 Search Logs</label>
+                        <label>Search Logs</label>
                         <input type="text" id="searchInput" placeholder="Search inside the selected day...">
                     </div>
                     <div class="filter-group">
-                        <label>📡 Log Source</label>
+                        <label>Log Source</label>
                         <select id="logSourceSelect">
                             <option value="cloudwatch" selected>AWS CloudWatch</option>
                             <option value="grafana">Grafana Loki</option>
@@ -517,22 +133,22 @@
                     </div>
                 </div>
                 <div class="action-buttons">
-                    <button class="btn btn-primary" onclick="fetchLogsForSelectedDate()">🔄 Refresh Logs</button>
-                    <button class="btn btn-secondary" onclick="clearFilters()">✖️ Clear Filters</button>
-                    <button class="btn btn-secondary" onclick="exportLogs()">💾 Export</button>
+                    <button class="btn btn-primary" onclick="fetchLogsForSelectedDate()">Refresh Logs</button>
+                    <button class="btn btn-secondary" onclick="clearFilters()">Clear Filters</button>
+                    <button class="btn btn-secondary" onclick="exportLogs()">Export</button>
                 </div>
             </div>
         </div>
 
         <div class="logs-container">
             <div class="logs-header">
-                <h2>📝 Log Entries</h2>
+                <h2>Log Entries</h2>
                 <span id="logCount">Select a date</span>
             </div>
             <div class="logs-scroll" id="logsContainer">
                 <div class="empty-state">
-                    <div class="empty-state-icon">🗓️</div>
-                    <div>Pick a date to load that day’s logs.</div>
+                    <div class="empty-state-icon">&#x1F5D3;</div>
+                    <div>Pick a date to load that day's logs.</div>
                 </div>
             </div>
         </div>
@@ -703,7 +319,7 @@
 
                 displayLogs({ logs: allLogs });
                 updateStats({ logs: allLogs });
-                showToast('✓ Daily logs refreshed');
+                showToast('Daily logs refreshed');
             } catch (error) {
                 if (error.name === 'AbortError') {
                     return;
@@ -711,11 +327,11 @@
                 console.error('Error fetching daily logs:', error);
                 document.getElementById('logsContainer').innerHTML = `
                     <div class="empty-state">
-                        <div class="empty-state-icon">⚠️</div>
+                        <div class="empty-state-icon">&#x26A0;</div>
                         <div>Error loading logs: ${escapeHtml(error.message)}</div>
                     </div>
                 `;
-                showToast('✗ Error fetching logs', 'error');
+                showToast('Error fetching logs', 'error');
             }
         }
 
@@ -727,7 +343,7 @@
             if (!logsToGroup || logsToGroup.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
-                        <div class="empty-state-icon">📭</div>
+                        <div class="empty-state-icon">&#x1F4ED;</div>
                         <div>No logs found for the selected day.</div>
                     </div>
                 `;
@@ -759,7 +375,7 @@
                 if (Object.keys(filteredGroups).length === 0 && filteredNoUUIDLogs.length === 0) {
                     container.innerHTML = `
                         <div class="empty-state">
-                            <div class="empty-state-icon">🔍</div>
+                            <div class="empty-state-icon">&#x1F50D;</div>
                             <div>No logs found matching "${escapeHtml(searchQuery)}"</div>
                         </div>
                     `;
@@ -848,8 +464,8 @@
                         <div class="uuid-group" id="${groupId}">
                             <div class="uuid-group-header" onclick="toggleUUIDGroup('${groupId}')">
                                 <div class="uuid-group-header-left">
-                                    <span class="uuid-group-toggle">▶</span>
-                                    <div class="uuid-group-title">📅 ${item.firstLogTime}</div>
+                                    <span class="uuid-group-toggle">&#x25B6;</span>
+                                    <div class="uuid-group-title">${item.firstLogTime}</div>
                                 </div>
                                 <div class="uuid-group-count">${item.logs.length} log${item.logs.length !== 1 ? 's' : ''}</div>
                             </div>
@@ -925,7 +541,7 @@
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
 
-            showToast('✓ Logs exported');
+            showToast('Logs exported');
         }
 
         function logout() {
@@ -936,7 +552,7 @@
         function showToast(message, type = 'success') {
             const toast = document.getElementById('toast');
             toast.textContent = message;
-            toast.style.background = type === 'error' ? 'rgba(239, 68, 68, 0.9)' : 'rgba(16, 185, 129, 0.9)';
+            toast.style.background = type === 'error' ? 'rgba(251, 113, 133, 0.9)' : 'rgba(52, 211, 153, 0.9)';
             toast.classList.add('show');
 
             setTimeout(() => {
