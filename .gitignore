@@ -3,3 +3,4 @@ __pycache__/
 audio_files/
 data.csv
 test.ipynb
+AGENTS.md
