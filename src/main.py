@@ -463,6 +463,7 @@ async def get_app_logs(
 @app.get("/api/traffic")
 async def get_traffic_data(
     hours: int = 1,
+    date: str = None,
     current_user: User = Depends(get_current_user)
 ):
     # Restrict to admin-ubl only
@@ -471,7 +472,13 @@ async def get_traffic_data(
             status_code=403,
             detail="Access denied. Admin access required."
         )
-    
+
+    # If date is provided, use date-based query
+    if date:
+        from src.traffic import get_intent_traffic_data_by_date
+        result = get_intent_traffic_data_by_date(date=date)
+        return result
+
     hours = max(1, min(hours, 336))  # Allow up to 14 days
     result = get_intent_traffic_data(hours=hours)
     return result

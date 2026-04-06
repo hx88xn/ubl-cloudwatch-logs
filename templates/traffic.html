@@ -30,6 +30,7 @@
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
+            align-items: center;
         }
         .time-btn {
             padding: 10px 20px;
@@ -54,6 +55,12 @@
             color: var(--bg-deep);
             box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
             font-weight: 700;
+        }
+        .date-separator {
+            width: 1px;
+            height: 36px;
+            background: var(--border);
+            margin: 0 6px;
         }
         .stats-grid {
             display: grid;
@@ -143,6 +150,9 @@
                 <button class="time-btn" data-hours="168">7d</button>
                 <button class="time-btn" data-hours="720">1 Month</button>
                 <button class="time-btn" data-hours="custom">Custom</button>
+                <div class="date-separator"></div>
+                <input type="date" id="dateSelector" class="time-btn" style="padding: 10px 16px; cursor: pointer;">
+                <button class="time-btn" id="dateFetchBtn" onclick="fetchTrafficByDate()">Load Date</button>
             </div>
             <div class="custom-range-container" id="customRangeContainer">
                 <label class="custom-range-label">Custom Range:</label>
@@ -231,6 +241,16 @@
         if (!token) {
             window.location.href = '/login';
         }
+
+        // Set date selector max to today (PKT = UTC+5)
+        function getPKTDate() {
+            const now = new Date();
+            const pkt = new Date(now.getTime() + (5 * 60 * 60 * 1000) - (now.getTimezoneOffset() * 60 * 1000));
+            return pkt.toISOString().split('T')[0];
+        }
+        const dateSelector = document.getElementById('dateSelector');
+        const todayPKT = getPKTDate();
+        dateSelector.max = todayPKT;
 
         // Check admin access
         async function checkAdminAccess() {
@@ -342,6 +362,75 @@
             }
         }
 
+        // Fetch traffic data by specific date
+        async function fetchTrafficByDate() {
+            const date = dateSelector.value;
+            if (!date) {
+                showToast('Please select a date', 'error');
+                return;
+            }
+
+            if (date > todayPKT) {
+                showToast('Cannot select a future date', 'error');
+                dateSelector.value = todayPKT;
+                return;
+            }
+
+            // Cancel any previous request
+            if (currentAbortController) {
+                currentAbortController.abort();
+            }
+
+            currentAbortController = new AbortController();
+            const signal = currentAbortController.signal;
+
+            // Deactivate time range buttons
+            document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('customRangeContainer').classList.remove('active');
+            showLoading();
+
+            try {
+                const response = await fetch(`/api/traffic?date=${date}`, {
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    signal: signal
+                });
+
+                if (response.status === 401) {
+                    localStorage.removeItem('access_token');
+                    window.location.href = '/login';
+                    return;
+                }
+
+                if (response.status === 403) {
+                    showToast('Access denied. Admin access required.', 'error');
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1500);
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                updateStats(data.totals, data.total_events);
+                updateChart(data);
+                document.getElementById('chartSubtitle').textContent = `Showing data for ${date}`;
+                showToast('Traffic data refreshed (PKT time)');
+
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    console.log('Request cancelled');
+                    return;
+                }
+                console.error('Error fetching traffic data:', error);
+                showToast('Error fetching traffic data', 'error');
+            } finally {
+                isLoading = false;
+            }
+        }
+
         // Update stats cards
         function updateStats(totals, totalEvents) {
             for (const [intent, count] of Object.entries(totals)) {
@@ -352,21 +441,6 @@
                 }
             }
             document.getElementById('stat-total').textContent = totalEvents.toLocaleString();
-        }
-
-        // Update chart subtitle
-        function updateSubtitle(hours) {
-            const subtitleEl = document.getElementById('chartSubtitle');
-            let rangeText;
-            if (hours < 24) {
-                rangeText = hours === 1 ? '1 hour' : `${hours} hours`;
-            } else if (hours % 24 === 0) {
-                const days = hours / 24;
-                rangeText = days === 1 ? '1 day' : `${days} days`;
-            } else {
-                rangeText = `${hours} hours`;
-            }
-            subtitleEl.textContent = `Showing data for the last ${rangeText}`;
         }
 
         // Update chart
@@ -480,8 +554,23 @@
             });
         }
 
+        // Update chart subtitle
+        function updateSubtitle(hours) {
+            const subtitleEl = document.getElementById('chartSubtitle');
+            let rangeText;
+            if (hours < 24) {
+                rangeText = hours === 1 ? '1 hour' : `${hours} hours`;
+            } else if (hours % 24 === 0) {
+                const days = hours / 24;
+                rangeText = days === 1 ? '1 day' : `${days} days`;
+            } else {
+                rangeText = `${hours} hours`;
+            }
+            subtitleEl.textContent = `Showing data for the last ${rangeText}`;
+        }
+
         // Time range button handlers
-        document.querySelectorAll('.time-btn').forEach(btn => {
+        document.querySelectorAll('.time-btn[data-hours]').forEach(btn => {
             btn.addEventListener('click', function () {
                 document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
